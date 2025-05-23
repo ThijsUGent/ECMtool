@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import json
 
 from tool_module.eu_mix_preconfiguration import *
 from tool_module.categorisation import *
@@ -49,7 +50,7 @@ def select_page():
     create_mix_checked = selection == "Create a MIX"
     upload_mix_checked = selection == "Upload MIX"
 
-    # --- EU-MIX2018 AUTOMATED PATHWAY SELECTION ---
+    # --- EU-MIX AUTOMATED PATHWAY SELECTION ---
     if aidres_mix_checked:
         selected_mix = st.radio(
             "Select an EU-MIX scenario", eumix_options, index=0)
@@ -135,7 +136,7 @@ def select_page():
                         dict_routes_selected[f"{sector}_{product}"] = (
                             edited_selected_df_product
                         )
-        # --- CUSTOM FROM-SCRATCH PATHWAY BUILDING ---
+# --- CUSTOM FROM-SCRATCH PATHWAY BUILDING ---
     if create_mix_checked:
         sectors_list = []
         for sector in sorted(df["sector_name"].unique()):
@@ -212,6 +213,7 @@ def select_page():
                             dict_routes_selected[f"{sector}_{product}"] = (
                                 edited_selected_df_product
                             )
+# --- IMPORT PATHWAY FROM .txt FILE ---
     if upload_mix_checked:
         st.text("Drag & drop .csv file")
 
@@ -242,3 +244,20 @@ def select_page():
         else:
             st.session_state["Pathway name"][pathway_name] = dict_routes_selected
             st.success(f"Pathway '{pathway_name}' stored.")
+    if st.button("Export pathway file"):
+        if pathway_name.strip() == "":
+            st.warning("Please enter a name for the pathway")
+        elif pathway_name in st.session_state["Pathway name"]:
+            st.warning(f"A pathway named '{pathway_name}' already exists.")
+        else:
+            # Convert dict to nicely formatted JSON string
+            # Change variable to fit all configuration manner
+            dict_str = json.dumps(configuration_id_EUMIX_weight, indent=4)
+
+            # Download button
+            st.download_button(
+                label="Download dictionary as .txt",
+                data=dict_str,
+                file_name="my_dict.txt",
+                mime="text/plain"
+            )
