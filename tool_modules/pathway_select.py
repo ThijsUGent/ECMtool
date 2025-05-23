@@ -332,13 +332,10 @@ def select_page():
                 dict_routes_selected.values(), ignore_index=True)
             exported_txt = export_to_txt(
                 combined_df, pathway_name)
-            st.write(exported_txt)
-            if st.button("Export pathway file"):
-
-                # Offer as download
-                st.download_button(
-                    label="Download Pathway File",
-                    data=exported_txt,
-                    file_name=f"ECM_Tool_{pathway_name}.txt",
-                    mime="text/plain"
-                )
+            # Offer as download
+            st.download_button(
+                label="Download Pathway File",
+                data=exported_txt,
+                file_name=f"ECM_Tool_{pathway_name}.txt",
+                mime="text/plain"
+            )
