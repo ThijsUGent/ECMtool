@@ -5,8 +5,8 @@ import numpy as np
 from pathlib import Path
 import json
 
-from tool_module.eu_mix_preconfiguration import *
-from tool_module.categorisation import *
+from tool_modules.eu_mix_preconfiguration import *
+from tool_modules.categorisation import *
 
 
 def select_page():

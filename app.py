@@ -1,9 +1,9 @@
 import streamlit as st
-from tool_module.eu_mix_preconfiguration import *
-from tool_module.categorisation import *
-from tool_module.pathway_select import *
-from tool_module.pathway_view import *
-from tool_module.results import *
+from tool_modules.eu_mix_preconfiguration import *
+from tool_modules.categorisation import *
+from tool_modules.pathway_select import *
+from tool_modules.pathway_view import *
+from tool_modules.results import *
 
 
 def main():
