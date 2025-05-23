@@ -76,7 +76,7 @@ def select_page():
                             & (df["product_name"] == product)
                         ].copy()
 
-                        # Preselect configurations relevant to EU-MIX2018
+                        # Preselect configurations relevant to EU-MIX
                         df_product["selected"] = df_product["configuration_id"].isin(
                             configuration_id_EUMIX_weight.keys()
                         )
@@ -220,8 +220,89 @@ def select_page():
         st.text("Drag & drop .csv file")
 
         uploaded_file = st.file_uploader(
-            "Upload your file here", type=["csv", "xlsx", "txt"]
+            "Upload your pathway file here", type=["txt"]
         )
+
+        configuration_id_EUMIX_weight = import_to_dict(uploaded_file)
+        # List creation to displai tabs and configuration visualisation/modification
+        sectors_list = []
+        for sector in sorted(df["sector_name"].unique()):
+            sectors_list.append(sector)
+        tabs = st.tabs(sectors_list)
+        for i, sector in enumerate(sectors_list):
+            with tabs[i]:
+                all_products = sorted(
+                    df[df["sector_name"] == sector]["product_name"].unique()
+                )
+                for product in all_products:
+                    with st.expander(f"{product}", expanded=False):
+                        # Filter for sector-product and copy
+                        df_product = df[
+                            (df["sector_name"] == sector)
+                            & (df["product_name"] == product)
+                        ].copy()
+
+                        # Preselect configurations relevant to EU-MIX
+                        df_product["selected"] = df_product["configuration_id"].isin(
+                            configuration_id_EUMIX_weight.keys()
+                        )
+                        df_product["route_weight"] = (
+                            df_product["configuration_id"]
+                            .map(configuration_id_EUMIX_weight)
+                            .fillna(0)
+                        )
+
+                        # Move "selected" column to front
+                        cols = df_product.columns.tolist()
+                        cols.remove("selected")
+                        df_product = df_product[["selected"] + cols].reset_index(
+                            drop=True
+                        )
+
+                        # Show editable checkbox table
+                        edited_df = st.data_editor(
+                            df_product,
+                            num_rows="fixed",
+                            column_config={
+                                "selected": st.column_config.CheckboxColumn("selected")
+                            },
+                            column_order=columns_to_show_selection,
+                            disabled=df_product.columns.difference(
+                                ["selected"]
+                            ).tolist(),
+                            hide_index=True,
+                            key=f"editor_eumix_{sector}_{product}",
+                        )
+
+                        # Filter selected and apply equal weights if not preset
+                        selected_df_product = edited_df[
+                            edited_df["selected"] == True
+                        ].copy()
+
+                        # Allow user to edit weights manually
+                        st.text("Edit the weight (%)")
+                        edited_selected_df_product = st.data_editor(
+                            selected_df_product,
+                            num_rows="fixed",
+                            column_config={
+                                "route_weight": st.column_config.NumberColumn(
+                                    "route_weight"
+                                )
+                            },
+                            disabled=selected_df_product.columns.difference(
+                                ["route_weight"]
+                            ).tolist(),
+                            hide_index=True,
+                            column_order=[
+                                "configuration_name", "route_weight"],
+                            use_container_width=True,
+                            key=f"selected_df_product_eumix_{sector}_{product}",
+                        )
+
+                        # Store result in final selection dictionary
+                        dict_routes_selected[f"{sector}_{product}"] = (
+                            edited_selected_df_product
+                        )
 
         st.text("To build....")
 
@@ -235,10 +316,6 @@ def select_page():
             "Enter a name for your pathway", value=pathway_name
         )
 
-    st.write(edited_selected_df_product)
-    pathway_export = export_to_txt(edited_selected_df_product, pathway_name)
-
-    st.write(pathway_export)
     if "Pathway name" not in st.session_state:
         st.session_state["Pathway name"] = {}
 
@@ -250,17 +327,18 @@ def select_page():
         else:
             st.session_state["Pathway name"][pathway_name] = dict_routes_selected
             st.success(f"Pathway '{pathway_name}' created.")
+            st.text("Preview of the file content:")
+            combined_df = pd.concat(
+                dict_routes_selected.values(), ignore_index=True)
+            exported_txt = export_to_txt(
+                combined_df, pathway_name)
+            st.write(exported_txt)
             if st.button("Export pathway file"):
-                exported_txt = export_to_txt(
-                    edited_selected_df_product, pathway_name)
-
-                st.text("Preview of the file content:")
-                st.text(exported_txt)
 
                 # Offer as download
                 st.download_button(
                     label="Download Pathway File",
                     data=exported_txt,
-                    file_name=f"{pathway_name}.txt",
+                    file_name=f"ECM_Tool_{pathway_name}.txt",
                     mime="text/plain"
                 )
