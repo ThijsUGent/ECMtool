@@ -261,6 +261,6 @@ def select_page():
                 st.download_button(
                     label="Download Pathway File",
                     data=exported_txt,
-                    file_name=f"{title}.txt",
+                    file_name=f"{pathway_name}.txt",
                     mime="text/plain"
                 )
