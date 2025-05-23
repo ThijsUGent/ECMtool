@@ -1,0 +1,4 @@
+Pathway file : EU-MIX-2018, created None
+{
+    "214": 100.0
+}

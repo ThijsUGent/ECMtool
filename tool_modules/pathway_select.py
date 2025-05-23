@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import json
 
+from tool_modules.import_export_file import *
 from tool_modules.eu_mix_preconfiguration import *
 from tool_modules.categorisation import *
 
@@ -136,6 +137,7 @@ def select_page():
                         dict_routes_selected[f"{sector}_{product}"] = (
                             edited_selected_df_product
                         )
+
 # --- CUSTOM FROM-SCRATCH PATHWAY BUILDING ---
     if create_mix_checked:
         sectors_list = []
@@ -222,8 +224,8 @@ def select_page():
         )
 
         st.text("To build....")
-    # --- PATHWAY NAMING AND SAVING ---
 
+# --- PATHWAY NAMING AND SAVING ---
     if pathway_name in eumix_options:
         pathway_name = st.text_input(
             "Enter a name for your pathway", value=selected_mix
@@ -233,31 +235,32 @@ def select_page():
             "Enter a name for your pathway", value=pathway_name
         )
 
+    st.write(edited_selected_df_product)
+    pathway_export = export_to_txt(edited_selected_df_product, pathway_name)
+
+    st.write(pathway_export)
     if "Pathway name" not in st.session_state:
         st.session_state["Pathway name"] = {}
 
-    if st.button("Store pathway builder"):
+    if st.button("Create pathway"):
         if pathway_name.strip() == "":
             st.warning("Please enter a name for the pathway")
         elif pathway_name in st.session_state["Pathway name"]:
             st.warning(f"A pathway named '{pathway_name}' already exists.")
         else:
             st.session_state["Pathway name"][pathway_name] = dict_routes_selected
-            st.success(f"Pathway '{pathway_name}' stored.")
-    if st.button("Export pathway file"):
-        if pathway_name.strip() == "":
-            st.warning("Please enter a name for the pathway")
-        elif pathway_name in st.session_state["Pathway name"]:
-            st.warning(f"A pathway named '{pathway_name}' already exists.")
-        else:
-            # Convert dict to nicely formatted JSON string
-            # Change variable to fit all configuration manner
-            dict_str = json.dumps(configuration_id_EUMIX_weight, indent=4)
+            st.success(f"Pathway '{pathway_name}' created.")
+            if st.button("Export pathway file"):
+                exported_txt = export_to_txt(
+                    edited_selected_df_product, pathway_name)
 
-            # Download button
-            st.download_button(
-                label="Download dictionary as .txt",
-                data=dict_str,
-                file_name="my_dict.txt",
-                mime="text/plain"
-            )
+                st.text("Preview of the file content:")
+                st.text(exported_txt)
+
+                # Offer as download
+                st.download_button(
+                    label="Download Pathway File",
+                    data=exported_txt,
+                    file_name=f"{title}.txt",
+                    mime="text/plain"
+                )

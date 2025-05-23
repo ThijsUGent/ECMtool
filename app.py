@@ -4,6 +4,7 @@ from tool_modules.categorisation import *
 from tool_modules.pathway_select import *
 from tool_modules.pathway_view import *
 from tool_modules.results import *
+from tool_modules.import_export_file import *
 
 
 def main():
