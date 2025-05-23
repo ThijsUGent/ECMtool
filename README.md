@@ -1,5 +1,3 @@
-test to see if github and vsc have become friends
-
 # explanation of the tool
 Main purpose is to increase the accessibility to the data from the AIDRES project. 
 In addition to the mix routes, many more cluster configurations can be generated.
