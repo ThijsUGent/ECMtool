@@ -35,19 +35,24 @@ def export_to_txt(df, title):
 
 def import_to_dict(uploaded_file):
     """
-    Extracts the dictionary from a Streamlit uploaded .txt file using line iteration.
-    Skips the header and loads the JSON.
+    Extracts the dictionary and pathway title from a Streamlit uploaded .txt file.
+    Assumes the first line is the header in the format 'Pathway file : <title>'.
+    Returns:
+        result_dict (dict): Dictionary parsed from the JSON body.
+        pathway_name (str): Extracted title from the header line.
     """
-    lines = []
+    lines = [line.decode("utf-8").strip() for line in uploaded_file]
 
-    # Decode each line as UTF-8
-    for line in uploaded_file:
-        lines.append(line.decode("utf-8").strip())
+    # Extract and clean title from the header line
+    header_line = lines[0]
+    if header_line.lower().startswith("pathway file :"):
+        pathway_name = header_line.split(":", 1)[1].strip()
+    else:
+        raise ValueError(
+            "Header line is not in the expected format: 'Pathway file : <title>'")
 
-    # Skip header (first line), join the rest
+    # Parse JSON from the remaining lines
     json_str = "\n".join(lines[1:])
-
-    # Load JSON content
     result_dict = json.loads(json_str)
-    print('test')
-    return result_dict
+
+    return result_dict, pathway_name
