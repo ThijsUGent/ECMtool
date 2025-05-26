@@ -13,7 +13,8 @@ from tool_modules.builder_functions import *
 
 def select_page():
     st.title("Pathway Builder")
-    st.write("Choose to create your pathway, aidres mix, or upload a mix")
+    st.write(
+        "Choose to select a ready-made path, upload or create your path")
 
     # Load and clean the per-ton configuration data
     perton_path = "data/perton_all.csv"
@@ -38,12 +39,12 @@ def select_page():
 
     selection = st.radio(
         "Choose an option",
-        ["AIDRES-MIX", "Create a MIX", "Upload MIX"],
+        ["Ready-made path", "Upload a path", "Create a path"],
         horizontal=True,
     )
-    aidres_mix_checked = selection == "AIDRES-MIX"
-    create_mix_checked = selection == "Create a MIX"
-    upload_mix_checked = selection == "Upload MIX"
+    aidres_mix_checked = selection == "Ready-made path"
+    upload_mix_checked = selection == "Upload a path"
+    create_mix_checked = selection == "Create a path"
 
     # --- EU-MIX AUTOMATED PATHWAY SELECTION ---
     if aidres_mix_checked:
