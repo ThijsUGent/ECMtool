@@ -58,37 +58,38 @@ def select_page():
     if upload_mix_checked:
         dict_routes_selected, pathway_name = upload_path(
             perton_ALL_no_mix, columns_to_show_selection)
-
-# --- PATHWAY NAMING AND SAVING ---
-    if aidres_mix_checked:
-        pathway_name = st.text_input(
-            "Enter a name for your pathway", value=selected_mix
-        )
-    else:
-        pathway_name = st.text_input(
-            "Enter a name for your pathway", value=pathway_name
-        )
-
-    if "Pathway name" not in st.session_state:
-        st.session_state["Pathway name"] = {}
-
-    if st.button("Create pathway"):
-        if pathway_name.strip() == "":
-            st.warning("Please enter a name for the pathway")
-        elif pathway_name in st.session_state["Pathway name"]:
-            st.warning(f"A pathway named '{pathway_name}' already exists.")
-        else:
-            st.session_state["Pathway name"][pathway_name] = dict_routes_selected
-            st.success(f"Pathway '{pathway_name}' created.")
-            st.text("Preview of the file content:")
-            combined_df = pd.concat(
-                dict_routes_selected.values(), ignore_index=True)
-            exported_txt = export_to_txt(
-                combined_df, pathway_name)
-            # Offer as download
-            st.download_button(
-                label="Download Pathway File",
-                data=exported_txt,
-                file_name=f"ECM_Tool_{pathway_name}.txt",
-                mime="text/plain"
+    if any(not df.empty for df in dict_routes_selected.values()):
+        # At least one DataFrame is not empty
+        # --- PATHWAY NAMING AND SAVING ---
+        if aidres_mix_checked:
+            pathway_name = st.text_input(
+                "Enter a name for your pathway", value=selected_mix
             )
+        else:
+            pathway_name = st.text_input(
+                "Enter a name for your pathway", value=pathway_name
+            )
+
+        if "Pathway name" not in st.session_state:
+            st.session_state["Pathway name"] = {}
+
+        if st.button("Create pathway"):
+            if pathway_name.strip() == "":
+                st.warning("Please enter a name for the pathway")
+            elif pathway_name in st.session_state["Pathway name"]:
+                st.warning(f"A pathway named '{pathway_name}' already exists.")
+            else:
+                st.session_state["Pathway name"][pathway_name] = dict_routes_selected
+                st.success(f"Pathway '{pathway_name}' created.")
+                st.text("Download pathway configuration in txt format:")
+                combined_df = pd.concat(
+                    dict_routes_selected.values(), ignore_index=True)
+                exported_txt = export_to_txt(
+                    combined_df, pathway_name)
+                # Offer as download
+                st.download_button(
+                    label="Download Pathway File",
+                    data=exported_txt,
+                    file_name=f"ECM_Tool_{pathway_name}.txt",
+                    mime="text/plain"
+                )

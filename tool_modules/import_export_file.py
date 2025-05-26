@@ -1,4 +1,5 @@
 import json
+import streamlit as st
 
 
 def export_to_txt(df, title):
@@ -48,9 +49,9 @@ def import_to_dict(uploaded_file):
     if header_line.lower().startswith("pathway file :"):
         pathway_name = header_line.split(":", 1)[1].strip()
     else:
-        raise ValueError(
+        st.error(
             "Header line is not in the expected format: 'Pathway file : <title>'")
-
+        return {}, None
     # Parse JSON from the remaining lines
     json_str = "\n".join(lines[1:])
     result_dict = json.loads(json_str)
