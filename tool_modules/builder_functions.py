@@ -299,7 +299,7 @@ def upload_path(df, columns_to_show_selection):
                                 edited_df["selected"] == True
                             ].copy()
 
-                            if edited_df != df_product:
+                            if not edited_df.equals(df_product):
                                 selected_df_product["route_weight"] = (
                                     round(1 / len(selected_df_product), 4) * 100
                                 )
