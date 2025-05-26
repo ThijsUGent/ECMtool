@@ -63,7 +63,7 @@ def select_page():
         # --- PATHWAY NAMING AND SAVING ---
         if aidres_mix_checked:
             pathway_name = st.text_input(
-                "Enter a name for your pathway", value=selected_mix
+                "Enter a name for your pathway", value=pathway_name
             )
         else:
             pathway_name = st.text_input(

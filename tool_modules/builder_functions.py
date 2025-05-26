@@ -20,13 +20,15 @@ def preconfigure_path(df, columns_to_show_selection):
     selected_mix = st.radio(
         "Select an EU-MIX scenario", eumix_options, index=0)
     pathway_name = selected_mix
-    configuration_id_EUMIX_weight = eu_mix_configuration_id_weight(
-        pathway_name)
+    if pathway_name in eumix_options:  # only for aidre_eu_mix
+        configuration_id_EUMIX_weight = eu_mix_configuration_id_weight(
+            pathway_name)
     # Convert values to float & int
     configuration_id_EUMIX_weight = {
         int(k): float(v) for k, v in configuration_id_EUMIX_weight.items()
     }
-
+    # modified verification intialisation
+    modified = False
     # List creation to displai tabs and configuration visualisation/modification
     sectors_list = []
     # Ensure configuration_id_EUMIX_weight keys are treated as integers
@@ -91,6 +93,7 @@ def preconfigure_path(df, columns_to_show_selection):
                         selected_df_product["route_weight"] = (
                             round(1 / len(selected_df_product), 4) * 100
                         )
+                        modified = True
                     else:
                         # Creation of edited_selected_df_product
                         edited_selected_df_product = df_product
@@ -117,13 +120,15 @@ def preconfigure_path(df, columns_to_show_selection):
                     total_weight = edited_selected_df_product["route_weight"].sum(
                     )
 
-                    if 99.99 <= total_weight <= 100. or total_weight == 0:
+                    if 99.99 <= total_weight <= 100.01 or total_weight == 0:
                         # Store result in final selection dictionary
                         dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                     else:
                         st.error(
                             f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
-
+    # Check if modified or not
+    if modified:
+        pathway_name += " modified"
     return dict_routes_selected, selected_mix, pathway_name
 
 
@@ -221,9 +226,11 @@ def create_path(df, columns_to_show_selection):
 
 
 def upload_path(df, columns_to_show_selection):
+    # Initalisation of modifed
+    modified = False
     # Dictionary to collect selected routes per sector-product
     dict_routes_selected = {}
-    st.text("Drag & drop .csv file")
+    st.text("Drag & drop .txt pathway file")
     uploaded_file = st.file_uploader(
         "Upload your pathway file here", type=["txt"]
     )
@@ -303,6 +310,7 @@ def upload_path(df, columns_to_show_selection):
                                 selected_df_product["route_weight"] = (
                                     round(1 / len(selected_df_product), 4) * 100
                                 )
+                                modified = True
                             else:
                                 # Creation of edited_selected_df_product
                                 edited_selected_df_product = df_product
@@ -329,11 +337,13 @@ def upload_path(df, columns_to_show_selection):
 
                             total_weight = edited_selected_df_product["route_weight"].sum(
                             )
-                            if 99.99 <= total_weight <= 100. or total_weight == 0:
+                            if 99.99 <= total_weight <= 100.01 or total_weight == 0:
                                 # Store result in final selection dictionary
                                 dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                             else:
                                 st.error(
                                     f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
-
+    # Check if modified or not
+    if modified:
+        pathway_name += " modified"
     return dict_routes_selected, pathway_name
