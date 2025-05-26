@@ -106,13 +106,17 @@ def preconfigure_path(df, columns_to_show_selection):
                         use_container_width=True,
                         key=f"selected_df_product_eumix_{sector}_{product}",
                     )
-
-                    # Store result in final selection dictionary
-                    dict_routes_selected[f"{sector}_{product}"] = (
-                        edited_selected_df_product
+                    total_weight = edited_selected_df_product["route_weight"].sum(
                     )
-    pre_choices_name_list = eumix_options
-    return dict_routes_selected, pre_choices_name_list, selected_mix, pathway_name
+
+                    if 99.99 < total_weight < 100.01:
+                        # Store result in final selection dictionary
+                        dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
+                    else:
+                        st.error(
+                            f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+
+    return dict_routes_selected, selected_mix, pathway_name
 
 
 def create_path(df, columns_to_show_selection):
@@ -191,10 +195,14 @@ def create_path(df, columns_to_show_selection):
                             use_container_width=True,
                             key=f"selected_df_product_custom_{sector}_{product}",
                         )
-
-                        dict_routes_selected[f"{sector}_{product}"] = (
-                            edited_selected_df_product
+                        total_weight = edited_selected_df_product["route_weight"].sum(
                         )
+                        if 99.99 <= total_weight <= 100.01:
+                            # Store result in final selection dictionary
+                            dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
+                        else:
+                            st.error(
+                                f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     return dict_routes_selected, pathway_name
 
 
@@ -296,9 +304,13 @@ def upload_path(df, columns_to_show_selection):
                             key=f"selected_df_product_eumix_{sector}_{product}",
                         )
 
-                        # Store result in final selection dictionary
-        dict_routes_selected[f"{sector}_{product}"] = (
-            edited_selected_df_product
-        )
+                        total_weight = edited_selected_df_product["route_weight"].sum(
+                        )
+                        if 99.99 <= total_weight <= 100.01:
+                            # Store result in final selection dictionary
+                            dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
+                        else:
+                            st.error(
+                                f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
 
     return dict_routes_selected, pathway_name

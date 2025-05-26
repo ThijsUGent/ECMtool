@@ -23,6 +23,9 @@ def select_page():
 
     perton_ALL = process_configuration_dataframe(perton_ALL)
 
+    perton_ALL_no_mix = perton_ALL[~perton_ALL["configuration_name"].str.contains(
+        "mix")]
+
     # Columns to be shown in the route selection editor
     columns_to_show_selection = [
         "selected",
@@ -44,17 +47,17 @@ def select_page():
 
     # --- EU-MIX AUTOMATED PATHWAY SELECTION ---
     if aidres_mix_checked:
-        dict_routes_selected, pre_choices_name_list, selected_mix, pathway_name = preconfigure_path(
-            perton_ALL, columns_to_show_selection)
+        dict_routes_selected, selected_mix, pathway_name = preconfigure_path(
+            perton_ALL_no_mix, columns_to_show_selection)
 
 # --- CUSTOM FROM-SCRATCH PATHWAY BUILDING ---
     if create_mix_checked:
         dict_routes_selected, pathway_name = create_path(
-            perton_ALL, columns_to_show_selection)
+            perton_ALL_no_mix, columns_to_show_selection)
 # --- IMPORT PATHWAY FROM .txt FILE ---
     if upload_mix_checked:
         dict_routes_selected, pathway_name = upload_path(
-            perton_ALL, columns_to_show_selection)
+            perton_ALL_no_mix, columns_to_show_selection)
 
 # --- PATHWAY NAMING AND SAVING ---
     if aidres_mix_checked:
