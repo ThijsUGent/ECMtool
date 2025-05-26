@@ -6,75 +6,95 @@ import plotly.express as px
 
 def view_page():
     st.title("Product selections")
-
     if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
         st.info("No selections stored yet.")
         return
-
+    # Initialisation of all sectors
+    sectors_all_list = ["Chemical", "Cement",
+                        "Refineries", "Fertilisers", "Steel", "Glass"]
+    # Select number of pathway to display
     pathway_names = list(st.session_state["Pathway name"].keys())
+    max_display = min(len(pathway_names), 3)
+    choices = list(range(1, max_display + 1))
+    number_to_display = st.radio(
+        "Number of paths to display", choices, horizontal=True, key=f'{choices}'
+    )
 
-    # Create two columns side by side for pathway selection
-    col1, col2 = st.columns(2)
+    # Select one sector to display
+    selected_sector = st.segmented_control(
+        "Select a sector", sectors_all_list, default=sectors_all_list[0])
 
-    with col1:
-        selected_pathway_name_1 = st.selectbox(
-            "Choose pathway 1", pathway_names, key="pathway1"
-        )
+    cols = st.columns(number_to_display)
 
-    with col2:
-        selected_pathway_name_2 = st.selectbox(
-            "Choose pathway 2", pathway_names, key="pathway2"
-        )
+    column_pathway_pairs = []
+    for col, name in zip(cols, pathway_names[:number_to_display]):
+        with col:
+            selected_pathway = st.selectbox(
+                f"Choose a pathway", pathway_names, key=f"select_{name}", index=pathway_names.index(name)
+            )
+            column_pathway_pairs.append((col, selected_pathway))
 
-    dict_routes_selected_1 = st.session_state["Pathway name"][selected_pathway_name_1]
-    dict_routes_selected_2 = st.session_state["Pathway name"][selected_pathway_name_2]
-
-    # Create two columns side by side for plotting
-    plot_col1, plot_col2 = st.columns(2)
-
-    with plot_col1:
-        st.header(f"Results for {selected_pathway_name_1}")
-        _display_pathway(dict_routes_selected_1, selected_pathway_name_1)
-
-    with plot_col2:
-        st.header(f"Results for {selected_pathway_name_2}")
-        _display_pathway(dict_routes_selected_2, selected_pathway_name_2)
+    _display_pathway(column_pathway_pairs, selected_sector)
 
 
-def _display_pathway(dict_routes_selected, pathway_names):
-    # make a list with the sectors
-    sectors_list = []
-    for key in dict_routes_selected:
-        first_part = key.split("_")[0]  # splits by underscore and takes first part
-        sectors_list.append(first_part)
+def _plot_configurations(df, selected_pathway, product, sector, col):
+    st.subheader(f"{product}")
 
-    # Gather by sector
-    for sector in set(sectors_list):  # unique sector names
-        with st.expander(f"Products in sector: {sector}"):
-            # find all keys in dict_routes_selected starting with this sector
-            products = {
-                k: v
-                for k, v in dict_routes_selected.items()
-                if k.startswith(sector + "_")
-            }
-            for key, df_or_dict in products.items():
-                # Assuming df_or_dict is a DataFrame or dict with columns "configuration_name" and "route_weight"
-                # If dict, convert to DataFrame
-                if not isinstance(df_or_dict, pd.DataFrame):
-                    df = pd.DataFrame(df_or_dict)
-                else:
-                    df = df_or_dict
+    # Sort configurations to maintain consistent order
+    df_sorted = df.sort_values(by=["configuration_name", "fuel"])
 
-                fig = px.bar(
-                    df,
-                    x="configuration_name",
-                    y="route_weight",
-                    title=key,
-                    labels={
-                        "configuration_name": "Configuration",
-                        "route_weight": "Weight",
-                    },
-                    barmode="stack",
-                )
+    # Create a colour map for fuel types
+    fuel_types = df_sorted["fuel"].unique()
+    colours = px.colors.qualitative.Plotly
+    colour_map = {fuel: colours[i % len(colours)]
+                  for i, fuel in enumerate(fuel_types)}
 
-            st.plotly_chart(fig, key=f"{pathway_names}_{key}")
+    # Add a colour column for Plotly
+    df_sorted["colour"] = df_sorted["fuel"].map(colour_map)
+
+    # Create a bar per fuel with a single y-value (product) and stack them
+    fig = px.bar(
+        df_sorted,
+        x="route_weight",
+        y=[product]*len(df_sorted),
+        color="fuel",
+        color_discrete_map=colour_map,
+        orientation="h",
+        hover_data=["route_weight", "configuration_name"]
+    )
+
+    # add a horizontal line manually
+    config_breaks = df_sorted["route_weight"].cumsum().values[:-1]
+    for x_pos in config_breaks:
+        fig.add_vline(x=x_pos, line_dash="dash", line_color="grey")
+
+    fig.update_layout(
+        barmode='stack',
+        xaxis_title="Weight",
+        yaxis_title="",
+        showlegend=True,
+        height=250,
+        title=f"Configuration Weights for {selected_pathway} - {sector} - {product} - {col}",
+        margin=dict(t=30, b=30)
+    )
+
+    st.plotly_chart(fig, use_container_width=True,
+                    key=f"plot_{selected_pathway} - {sector} - {product} - {col}")
+
+
+def _display_pathway(column_pathway_pairs, sector):
+
+    for col, selected_pathway in column_pathway_pairs:
+        with col:
+            dict_routes_selected = st.session_state["Pathway name"][selected_pathway]
+
+            keys = dict_routes_selected.keys()
+            keys_filtered = [k for k in keys if k.startswith(sector + "_")]
+            for k in keys_filtered:
+                product = k.split("_")[1]
+                if len(product.split("-")) > 1:
+                    product = "-".join(product.split("-")[1:])
+
+                df = dict_routes_selected[k]
+                _plot_configurations(df, selected_pathway,
+                                     product, sector, col)
