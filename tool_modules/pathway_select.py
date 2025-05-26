@@ -73,7 +73,7 @@ def select_page():
         if "Pathway name" not in st.session_state:
             st.session_state["Pathway name"] = {}
 
-        if st.button("Create pathway"):
+        if st.button("Save pathway"):
             if pathway_name.strip() == "":
                 st.warning("Please enter a name for the pathway")
             elif pathway_name in st.session_state["Pathway name"]:
