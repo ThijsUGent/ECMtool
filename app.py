@@ -6,6 +6,8 @@ from tool_modules.pathway_view import *
 from tool_modules.results import *
 from tool_modules.import_export_file import *
 
+st.set_page_config(layout="wide")
+
 
 def main():
     st.sidebar.title("Navigation")

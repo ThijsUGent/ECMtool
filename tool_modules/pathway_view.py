@@ -74,7 +74,7 @@ def _plot_configurations(df, selected_pathway, product, sector, col):
         yaxis_title="",
         showlegend=True,
         height=250,
-        title=f"Configuration Weights for {selected_pathway} - {sector} - {product} - {col}",
+        title=f"Configuration Weights for {selected_pathway} - {product}",
         margin=dict(t=30, b=30)
     )
 
