@@ -7,6 +7,8 @@ from tool_modules.results import *
 from tool_modules.import_export_file import *
 
 st.set_page_config(layout="wide")
+st.logo("images/logo_UGent_EN_RGB_2400_color.png", size="large",
+        link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm")
 
 
 def main():
