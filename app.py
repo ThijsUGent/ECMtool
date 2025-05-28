@@ -14,43 +14,70 @@ st.logo(logo_side, size="large",
 
 
 def main():
-    st.sidebar.title("Navigation")
+    if "main_section" not in st.session_state:
+        st.session_state["main_section"] = "-- Select a section --"
 
-    # Pathway section
-    with st.sidebar.expander("Pathway", expanded=True):
-        pathway_subsection = st.radio(
+    if st.sidebar.button("Welcome", type="tertiary"):
+        st.session_state["main_section"] = "-- Select a section --"
+        st.header("Welcome")
+        st.markdown("""
+        ### ECM Research Group at Ghent University
+
+        The Energy and Cluster Management (ECM) group at Ghent University focuses on sustainable energy systems, industrial symbiosis, and the optimisation of material and energy flows. The group brings together interdisciplinary research on energy efficiency, cluster-scale integration, and life cycle assessment, aiming to support the transition to a low-carbon economy.
+
+        ### AIDRES Project
+
+        The AIDRES project, funded by the European Commission’s Directorate-General for Energy (DG ENER), aims to develop AI-powered digital tools to facilitate industrial decarbonisation. By identifying, evaluating, and optimising opportunities for resource and energy symbiosis within and between industrial clusters, AIDRES supports both industries and policymakers in accelerating the transition to a more circular and climate-neutral economy.
+        """)
+        # Other sections
+    if st.sidebar.button("Documentation", type="tertiary"):
+        st.session_state["main_section"] = "-- Select a section --"
+    if st.sidebar.button("ECM", type="tertiary"):
+        st.session_state["main_section"] = "-- Select a section --"
+    if st.sidebar.button("About", type="tertiary"):
+        st.session_state["main_section"] = "-- Select a section --"
+    st.sidebar.text("________________________")
+    st.sidebar.subheader("PathMaker")
+
+    # Static label above the radio
+    st.sidebar.markdown("**Choose a section**")
+
+    # Use a placeholder and conditional rendering for better default behaviour
+    main_options = ["-- Select a section --", "Pathway",
+                    "Cluster - microscale", "Maps - European scale"]
+    main_section = st.sidebar.radio(
+        "", main_options, key="main_section", index=main_options.index(st.session_state["main_section"]), label_visibility="collapsed"
+    )
+    if main_section == "Pathway":
+        pathway_subsection = st.sidebar.radio(
             "Select a page",
             ["Pathway configuration", "Pathway visualisation", "Pathway perton"],
             key="pathway_sub",
         )
+        if pathway_subsection == "Pathway configuration":
+            select_page()
+        elif pathway_subsection == "Pathway visualisation":
+            view_page()
+        elif pathway_subsection == "Pathway perton":
+            perton_page()
 
-    # Cluster - microscale section
-    with st.sidebar.expander("Cluster - microscale", expanded=False):
-        cluster_subsection = st.radio(
+    elif main_section == "Cluster - microscale":
+        cluster_subsection = st.sidebar.radio(
             "Select a page", ["Cluster viewer", "Cluster analysis"], key="cluster_sub"
         )
+        if cluster_subsection == "Cluster viewer":
+            st.text("Cluster viewer page under construction")
+        elif cluster_subsection == "Cluster analysis":
+            st.text("Cluster analysis page under construction")
 
-    # Maps - European scale section
-    with st.sidebar.expander("Maps - European scale", expanded=False):
-        maps_subsection = st.radio(
+    elif main_section == "Maps - European scale":
+        maps_subsection = st.sidebar.radio(
             "Select a page", ["Emission map", "Energy flow map"], key="maps_sub"
         )
-
-    # Page logic
-    if pathway_subsection == "Pathway configuration":
-        select_page()
-    elif pathway_subsection == "Pathway visualisation":
-        view_page()
-    elif pathway_subsection == "Pathway perton":
-        perton_page()
-    elif cluster_subsection == "Cluster viewer":
-        st.text("Cluster viewer page under construction")
-    elif cluster_subsection == "Cluster analysis":
-        st.text("Cluster analysis page under construction")
-    elif maps_subsection == "Emission map":
-        st.text("Emission map page under construction")
-    elif maps_subsection == "Energy flow map":
-        st.text("Energy flow map page under construction")
+        if maps_subsection == "Emission map":
+            st.text("Emission map page under construction")
+        elif maps_subsection == "Energy flow map":
+            st.text("Energy flow map page under construction")
 
 
 if __name__ == "__main__":
