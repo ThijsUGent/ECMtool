@@ -61,6 +61,12 @@ def select_page():
             perton_ALL_no_mix, columns_to_show_selection)
     if any(not df.empty for df in dict_routes_selected.values()):
         # At least one DataFrame is not empty
+
+        # Keep only the selected rows (where route_weight not 0)
+        for key in dict_routes_selected.keys():
+            dict_routes_selected[key] = dict_routes_selected[key][dict_routes_selected[key]
+                                                                  ["route_weight"] != 0]
+
         # --- PATHWAY NAMING AND SAVING ---
         if aidres_mix_checked:
             pathway_name = st.text_input(

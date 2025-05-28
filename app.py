@@ -3,12 +3,14 @@ from tool_modules.eu_mix_preconfiguration import *
 from tool_modules.categorisation import *
 from tool_modules.pathway_select import *
 from tool_modules.pathway_view import *
-from tool_modules.results import *
+from tool_modules.pathway_perton import *
 from tool_modules.import_export_file import *
 
 st.set_page_config(layout="wide")
-st.logo("images/logo_UGent_EN_RGB_2400_color.png", size="large",
-        link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm")
+logo = "images/logo_UGent_EN_RGB_2400_color.png"
+logo_side = "images/logo_side_bar.png"
+st.logo(logo_side, size="large",
+        link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm", icon_image=logo)
 
 
 def main():
@@ -40,7 +42,7 @@ def main():
     elif pathway_subsection == "Pathway visualisation":
         view_page()
     elif pathway_subsection == "Pathway perton":
-        results_page()
+        perton_page()
     elif cluster_subsection == "Cluster viewer":
         st.text("Cluster viewer page under construction")
     elif cluster_subsection == "Cluster analysis":

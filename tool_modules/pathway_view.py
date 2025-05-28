@@ -38,6 +38,8 @@ def view_page():
 
 
 def _plot_configurations(df, selected_pathway, product, sector, col):
+
+    st.subheader
     st.subheader(f"{product}")
 
     # Sort configurations to maintain consistent order
