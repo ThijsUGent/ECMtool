@@ -5,6 +5,8 @@ from tool_modules.pathway_select import *
 from tool_modules.pathway_view import *
 from tool_modules.pathway_perton import *
 from tool_modules.import_export_file import *
+from tool_modules.maps import *
+
 
 from pages.menu_pages import *
 
@@ -47,8 +49,8 @@ def main():
     st.sidebar.markdown("**Choose a section**")
 
     # Use a placeholder and conditional rendering for better default behaviour
-    main_options = ["-- Select a section --", "Pathway",
-                    "Cluster - microscale", "Maps - European scale"]
+    main_options = ["-- Select a section --", "Pathway", "Maps - European scale",
+                    "Cluster - microscale"]
     main_section = st.sidebar.radio(
         "", main_options, key="main_section", index=main_options.index(st.session_state["main_section"]), label_visibility="collapsed"
     )
@@ -69,6 +71,15 @@ def main():
         elif pathway_subsection == "Pathway perton":
             perton_page()
 
+    elif main_section == "Maps - European scale":
+        maps_subsection = st.sidebar.radio(
+            "Select a page", ["Map per pathway", "Map per utilisation rate"], key="maps_sub"
+        )
+        if maps_subsection == "Map per pathway":
+            map_per_pathway()
+        elif maps_subsection == "Map per utilisation rate":
+            map_per_utlisation_rate()
+
     elif main_section == "Cluster - microscale":
         cluster_subsection = st.sidebar.radio(
             "Select a page", ["Cluster viewer", "Cluster analysis"], key="cluster_sub"
@@ -77,15 +88,6 @@ def main():
             st.text("Cluster viewer page under construction")
         elif cluster_subsection == "Cluster analysis":
             st.text("Cluster analysis page under construction")
-
-    elif main_section == "Maps - European scale":
-        maps_subsection = st.sidebar.radio(
-            "Select a page", ["Emission map", "Energy flow map"], key="maps_sub"
-        )
-        if maps_subsection == "Emission map":
-            st.text("Emission map page under construction")
-        elif maps_subsection == "Energy flow map":
-            st.text("Energy flow map page under construction")
 
 
 if __name__ == "__main__":
