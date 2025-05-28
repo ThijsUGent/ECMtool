@@ -6,6 +6,8 @@ from tool_modules.pathway_view import *
 from tool_modules.pathway_perton import *
 from tool_modules.import_export_file import *
 
+from pages.menu_pages import *
+
 st.set_page_config(layout="wide")
 logo = "images/logo_UGent_EN_RGB_2400_color.png"
 logo_side = "images/logo_side_bar.png"
@@ -14,28 +16,30 @@ st.logo(logo_side, size="large",
 
 
 def main():
+    # initilisation
+    buttons = False
     if "main_section" not in st.session_state:
         st.session_state["main_section"] = "-- Select a section --"
+        welcome()
 
     if st.sidebar.button("Welcome", type="tertiary"):
         st.session_state["main_section"] = "-- Select a section --"
-        st.header("Welcome")
-        st.markdown("""
-        ### ECM Research Group at Ghent University
+        buttons = True
+        welcome()
 
-        The Energy and Cluster Management (ECM) group at Ghent University focuses on sustainable energy systems, industrial symbiosis, and the optimisation of material and energy flows. The group brings together interdisciplinary research on energy efficiency, cluster-scale integration, and life cycle assessment, aiming to support the transition to a low-carbon economy.
-
-        ### AIDRES Project
-
-        The AIDRES project, funded by the European Commission’s Directorate-General for Energy (DG ENER), aims to develop AI-powered digital tools to facilitate industrial decarbonisation. By identifying, evaluating, and optimising opportunities for resource and energy symbiosis within and between industrial clusters, AIDRES supports both industries and policymakers in accelerating the transition to a more circular and climate-neutral economy.
-        """)
         # Other sections
     if st.sidebar.button("Documentation", type="tertiary"):
         st.session_state["main_section"] = "-- Select a section --"
+        buttons = True
+        Documentation()
     if st.sidebar.button("ECM", type="tertiary"):
         st.session_state["main_section"] = "-- Select a section --"
+        buttons = True
+        ECM()
     if st.sidebar.button("About", type="tertiary"):
         st.session_state["main_section"] = "-- Select a section --"
+        buttons = True
+        About()
     st.sidebar.text("________________________")
     st.sidebar.subheader("PathMaker")
 
@@ -48,6 +52,10 @@ def main():
     main_section = st.sidebar.radio(
         "", main_options, key="main_section", index=main_options.index(st.session_state["main_section"]), label_visibility="collapsed"
     )
+    if main_section == "-- Select a section --":
+        if not buttons:
+            welcome()
+
     if main_section == "Pathway":
         pathway_subsection = st.sidebar.radio(
             "Select a page",
