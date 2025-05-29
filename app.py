@@ -8,7 +8,7 @@ from tool_modules.import_export_file import *
 from tool_modules.maps import *
 
 
-from pages.menu_pages import *
+from pages_scripts.menu_pages import *
 
 st.set_page_config(layout="wide")
 logo = "images/logo_UGent_EN_RGB_2400_color.png"
@@ -20,9 +20,9 @@ st.logo(logo_side, size="large",
 def main():
     # initilisation
     buttons = False
+
     if "main_section" not in st.session_state:
         st.session_state["main_section"] = "-- Select a section --"
-        welcome()
 
     if st.sidebar.button("Welcome", type="tertiary"):
         st.session_state["main_section"] = "-- Select a section --"
