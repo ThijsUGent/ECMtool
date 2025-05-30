@@ -20,6 +20,7 @@ st.logo(logo_side, size="large",
 def main():
     # initilisation
     buttons = False
+    st.session_state["start_button_pressed"] = False
 
     if "main_section" not in st.session_state:
         st.session_state["main_section"] = "-- Select a section --"
@@ -42,6 +43,7 @@ def main():
         st.session_state["main_section"] = "-- Select a section --"
         buttons = True
         About()
+
     st.sidebar.text("________________________")
     st.sidebar.subheader("PathMaker")
 
@@ -51,9 +53,13 @@ def main():
     # Use a placeholder and conditional rendering for better default behaviour
     main_options = ["-- Select a section --", "Pathway", "Maps - European scale",
                     "Cluster - microscale"]
+
+    # Determine the current main section selection
+
     main_section = st.sidebar.radio(
         "", main_options, key="main_section", index=main_options.index(st.session_state["main_section"]), label_visibility="collapsed"
     )
+
     if main_section == "-- Select a section --":
         if not buttons:
             welcome()
