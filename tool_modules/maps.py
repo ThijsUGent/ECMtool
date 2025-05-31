@@ -129,51 +129,16 @@ def _mapping_chart_per_ener_feed_cluster(gdf):
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
 
-    # Create the PyDeck layer
-    point_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=gdf,
-        id="sites",
-        get_position='[lon, lat]',
-        get_radius=1e4,
-        pickable=True,
-    )
-
-    # Set the initial view state
-    view_state = pdk.ViewState(
-        latitude=gdf['lat'].mean(),
-        longitude=gdf['lon'].mean(),
-        zoom=3,
-        pitch=0,
-    )
-
-    # Render the interactive map with tooltips and capture selected data
-    chart = pdk.Deck(
-        layers=[point_layer],
-        initial_view_state=view_state,
-        tooltip={"text": "Sector: {aidres_sector_name}"},
-        map_style=None,
-    )
-    event = st.pydeck_chart(chart, on_select="rerun",
-                            selection_mode="single-object")
-
-    dict = event.selection
-
-    return dict
-
-
-def _mapping_chart_per_ener_feed_sites(gdf):
-    # Extract latitude and longitude
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
-
     unique_clusters = gdf["cluster"].unique()
     cmap = plt.get_cmap("tab20", len(unique_clusters))
-    cluster_color_map = {
-        cluster: [0, 0, 0] if cluster == -
-        1 else [int(c * 255) for c in cmap(i)[:3]]
-        for i, cluster in enumerate(unique_clusters)
-    }
+    cluster_color_map = {}
+    for i, cluster in enumerate(unique_clusters):
+        if cluster == -1:
+            cluster_color_map[cluster] = [0, 0, 0]  # black
+        else:
+            rgb = [int(255 * c) for c in cmap(i % cmap.N)[:3]]
+            cluster_color_map[cluster] = rgb
+
     gdf["color"] = gdf["cluster"].map(cluster_color_map)
     colormap = "color"
 
@@ -206,9 +171,62 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     event = st.pydeck_chart(chart, on_select="rerun",
                             selection_mode="single-object")
 
-    dict = event.selection
+    selected = event.selection
 
-    return dict
+    return selected
+
+
+def _mapping_chart_per_ener_feed_sites(gdf):
+    # Extract latitude and longitude
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
+
+    unique_clusters = gdf["cluster"].unique()
+    cmap = plt.get_cmap("tab20", len(unique_clusters))
+    cluster_color_map = {}
+    for i, cluster in enumerate(unique_clusters):
+        if cluster == -1:
+            cluster_color_map[cluster] = [0, 0, 0]  # black
+        else:
+            rgb = [int(255 * c) for c in cmap(i % cmap.N)[:3]]
+            cluster_color_map[cluster] = rgb
+
+    gdf["color"] = gdf["cluster"].map(cluster_color_map)
+    colormap = "color"
+
+    # Create the PyDeck layer
+    point_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=gdf,
+        id="sites",
+        get_position='[lon, lat]',
+        get_radius=1e4,
+        pickable=True,
+        get_fill_color=colormap,
+        pitch=0,
+    )
+
+    # Set the initial view state
+    view_state = pdk.ViewState(
+        latitude=gdf['lat'].mean(),
+        longitude=gdf['lon'].mean(),
+        zoom=3,
+        pitch=0,
+    )
+
+    # Render the interactive map with tooltips and capture selected data
+    chart = pdk.Deck(
+        layers=[point_layer],
+        initial_view_state=view_state,
+        tooltip={"text": "Sector: {aidres_sector_name}"},
+        map_style=None,
+    )
+    event = st.pydeck_chart(chart, on_select="rerun",
+                            selection_mode="single-object")
+
+    selected = event.selection
+
+    return selected
 
 
 def _run_clustering(choice, gdf):
@@ -256,11 +274,11 @@ def map_per_pathway():
     map_choice = st.radio("Mapping view", ["cluster", "site"])
     if map_choice == "cluster":
         gdf_clustered_centroid = _summarise_clusters_by_centroid(gdf_clustered)
-        dict = _mapping_chart_per_ener_feed_cluster(gdf_clustered_centroid)
+        selected = _mapping_chart_per_ener_feed_cluster(gdf_clustered_centroid)
     if map_choice == "site":
-        dict = _mapping_chart_per_ener_feed_sites(gdf_clustered)
+        selected = _mapping_chart_per_ener_feed_sites(gdf_clustered)
 
-    st.write(dict)
+    st.write(selected)
 
 
 def map_per_utlisation_rate():
@@ -281,21 +299,22 @@ def _cluster_gdf_dbscan(gdf, min_samples, radius):
     GeoDataFrame: GeoDataFrame with an added 'cluster' column.
     """
     # Ensure geometry is in lat/lon
-    eps = radius / 6371.0
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
+    gdf.loc[:, "lat"] = gdf.geometry.y
+    gdf.loc[:, "long"] = gdf.geometry.x
+    coords_rad = np.radians(gdf[["lat", "long"]])
 
-    coords = gdf[['lat', 'lon']].to_numpy()
-    scaler = StandardScaler()
-    coords_scaled = scaler.fit_transform(coords)
-
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(coords_scaled)
+    db = DBSCAN(
+        eps=radius / 6371.0,  # Convert radius from km to radians
+        min_samples=min_samples,
+        metric="haversine",
+        algorithm="ball_tree",
+    ).fit(coords_rad)
     gdf['cluster'] = db.labels_
 
     return gdf
 
 
-# Summarise clusters by centroid and sum of energy columns
+# Summarise clusters values and aggreagatge in centroid per cluster (exculde -1)
 def _summarise_clusters_by_centroid(gdf_clustered):
     """
     Summarise clustered GeoDataFrame by computing the centroid of each cluster
@@ -313,19 +332,39 @@ def _summarise_clusters_by_centroid(gdf_clustered):
     columns = [col for col in gdf_clustered.columns if any(
         col.startswith(f"{feed} ") for feed in type_ener_feed)]
 
+    def _cluster_centroid(cluster_df):
+        """Compute centroid of a cluster."""
+        if cluster_df.empty:
+            return None
+        points = MultiPoint(cluster_df.geometry.tolist())
+        return [points.centroid.y, points.centroid.x]
+
+    cluster_centers = (
+        gdf_clustered[gdf_clustered["cluster"] != -
+                      1].groupby("cluster").apply(_cluster_centroid)
+    )
+    centroids_df = pd.DataFrame(
+        cluster_centers.tolist(),
+        columns=["Latitude", "Longitude"],
+        index=cluster_centers.index,
+    )
+
+    gdf_clustered_center = gpd.GeoDataFrame(
+        centroids_df,
+        geometry=gpd.points_from_xy(
+            centroids_df.Longitude, centroids_df.Latitude),
+        crs="EPSG:4326",
+    )
+
     # Group by cluster and sum energy columns
-    energy_sums = gdf_clustered.groupby('cluster')[columns].sum()
+    summary = gdf_clustered.groupby(
+        "cluster")[columns].sum().reset_index()
 
-    # Compute centroids
-    cluster_centroids = gdf_clustered.dissolve(by='cluster').centroid
-    cluster_centroids = cluster_centroids.rename("geometry")
+    # Compute geometry as centroid of cluster
+    gdf_summary = summary.merge(gdf_clustered_center, on="cluster")
 
-    # Combine summed energy data with centroids
-    summary = pd.concat([energy_sums, cluster_centroids], axis=1).reset_index()
-
-    # Convert to GeoDataFrame
     gdf_summary = gpd.GeoDataFrame(
-        summary, geometry='geometry', crs="EPSG:4326")
+        gdf_summary, geometry='geometry', crs="EPSG:4326")
 
     return gdf_summary
 
