@@ -5,6 +5,11 @@ import geopandas as gpd
 from shapely import wkb
 import pydeck as pdk
 import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.cluster import DBSCAN
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -116,48 +121,10 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization):
             gdf_prod_x_perton["prod_rate"]
         gdf_prod_x_perton.rename(
             columns={column: f"{column} ton"}, inplace=True)
-    st.write(gdf_prod_x_perton)
     return gdf_prod_x_perton
 
 
-def map_per_pathway():
-    path = "data/production_site.csv"
-    df = pd.read_csv(path)
-
-    df = df[df["wp1_model_product_name"] != "not included in blue-print model"]
-
-    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
-        st.info("No selections stored yet.")
-        return
-
-    pathways_names = list(
-        st.session_state["Pathway name"].keys())
-
-    # intial number sector
-    sectors_all_list = []
-    if len(pathways_names) == 1:
-
-        dict_path1 = st.session_state["Pathway name"][list(
-            st.session_state["Pathway name"].keys())[0]]
-        df_path1 = dict_path1[list(dict_path1.keys())[0]]
-        sector_max_list = df_path1["sector_name"].unique().tolist()
-        sectors_all_list = sector_max_list
-
-    else:
-        # Initialisation of all sectors
-        sectors_all_list = ["Chemical", "Cement",
-                            "Refineries", "Fertilisers", "Steel", "Glass"]
-
-    sector_utilization = _get_utilization_rates(sectors_all_list)
-
-    for pathway in pathways_names:
-        st.write(pathway)
-        gdf_prod_x_perton = _get_gdf_prod_x_perton(
-            df, pathway, sector_utilization)
-
-    # Convert to GeoDataFrame
-    gdf = gdf_prod_x_perton
-
+def _mapping_chart_per_ener_feed_cluster(gdf):
     # Extract latitude and longitude
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
@@ -190,10 +157,200 @@ def map_per_pathway():
     event = st.pydeck_chart(chart, on_select="rerun",
                             selection_mode="single-object")
 
-    event.selection
+    dict = event.selection
 
-    st.write(event.selection)
+    return dict
+
+
+def _mapping_chart_per_ener_feed_sites(gdf):
+    # Extract latitude and longitude
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
+
+    unique_clusters = gdf["cluster"].unique()
+    cmap = plt.get_cmap("tab20", len(unique_clusters))
+    cluster_color_map = {
+        cluster: [0, 0, 0] if cluster == -
+        1 else [int(c * 255) for c in cmap(i)[:3]]
+        for i, cluster in enumerate(unique_clusters)
+    }
+    gdf["color"] = gdf["cluster"].map(cluster_color_map)
+    colormap = "color"
+
+    # Create the PyDeck layer
+    point_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=gdf,
+        id="sites",
+        get_position='[lon, lat]',
+        get_radius=1e4,
+        pickable=True,
+        get_fill_color=colormap
+    )
+
+    # Set the initial view state
+    view_state = pdk.ViewState(
+        latitude=gdf['lat'].mean(),
+        longitude=gdf['lon'].mean(),
+        zoom=3,
+        pitch=0,
+    )
+
+    # Render the interactive map with tooltips and capture selected data
+    chart = pdk.Deck(
+        layers=[point_layer],
+        initial_view_state=view_state,
+        tooltip={"text": "Sector: {aidres_sector_name}"},
+        map_style=None,
+    )
+    event = st.pydeck_chart(chart, on_select="rerun",
+                            selection_mode="single-object")
+
+    dict = event.selection
+
+    return dict
+
+
+def _run_clustering(choice, gdf):
+    if choice == "DBSCAN":
+        min_samples = st.slider("Min samples", 1, 10, value=5)
+        radius = st.slider("Distance", 1, 100, step=10, value=10)
+        gdf_clustered = _cluster_gdf_dbscan(gdf, min_samples, radius)
+
+    if choice == "KMEANS":
+        n_cluster = st.slider("Nbr of cluster", 10, 200, step=10, value=100)
+        gdf_clustered = _cluster_gdf_kmeans(gdf, n_cluster)
+
+    return gdf_clustered
+
+
+def map_per_pathway():
+    path = "data/production_site.csv"
+    df = pd.read_csv(path)
+
+    df = df[df["wp1_model_product_name"] != "not included in blue-print model"]
+
+    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
+        st.info("No selections stored yet.")
+        return
+
+    pathways_names = list(
+        st.session_state["Pathway name"].keys())
+
+    # Initialisation of all sectors
+    sectors_all_list = ["Chemical", "Cement",
+                        "Refineries", "Fertilisers", "Steel", "Glass"]
+
+    sector_utilization = _get_utilization_rates(sectors_all_list)
+
+    for pathway in pathways_names:
+        st.write(pathway)
+        gdf_prod_x_perton = _get_gdf_prod_x_perton(
+            df, pathway, sector_utilization)
+    # Convert to GeoDataFrame
+    gdf = gdf_prod_x_perton
+
+    choice = st.radio("Cluster method", ["DBSCAN", "KMEANS"])
+    gdf_clustered = _run_clustering(choice, gdf)
+
+    map_choice = st.radio("Mapping view", ["cluster", "site"])
+    if map_choice == "cluster":
+        gdf_clustered_centroid = _summarise_clusters_by_centroid(gdf_clustered)
+        dict = _mapping_chart_per_ener_feed_cluster(gdf_clustered_centroid)
+    if map_choice == "site":
+        dict = _mapping_chart_per_ener_feed_sites(gdf_clustered)
+
+    st.write(dict)
 
 
 def map_per_utlisation_rate():
     st.write("Contruction")
+
+
+# DBSCAN clustering for GeoDataFrame
+def _cluster_gdf_dbscan(gdf, min_samples, radius):
+    """
+    Perform DBSCAN clustering on a GeoDataFrame using lat/lon.
+
+    Parameters:
+    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries.
+    min_samples (int): Minimum number of points to form a cluster.
+    eps (float): Maximum distance between points in the same cluster (in degrees).
+
+    Returns:
+    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
+    """
+    # Ensure geometry is in lat/lon
+    eps = radius / 6371.0
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
+
+    coords = gdf[['lat', 'lon']].to_numpy()
+    scaler = StandardScaler()
+    coords_scaled = scaler.fit_transform(coords)
+
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(coords_scaled)
+    gdf['cluster'] = db.labels_
+
+    return gdf
+
+
+# Summarise clusters by centroid and sum of energy columns
+def _summarise_clusters_by_centroid(gdf_clustered):
+    """
+    Summarise clustered GeoDataFrame by computing the centroid of each cluster
+    and summing all type_ener_feed columns per cluster.
+
+    Parameters:
+    gdf_clustered (GeoDataFrame): Clustered GeoDataFrame with 'cluster' column.
+
+    Returns:
+    GeoDataFrame: GeoDataFrame with one row per cluster, centroid location, and
+                  sum of all type_ener_feed columns.
+    """
+    if 'cluster' not in gdf_clustered.columns:
+        raise ValueError("GeoDataFrame must contain a 'cluster' column.")
+    columns = [col for col in gdf_clustered.columns if any(
+        col.startswith(f"{feed} ") for feed in type_ener_feed)]
+
+    # Group by cluster and sum energy columns
+    energy_sums = gdf_clustered.groupby('cluster')[columns].sum()
+
+    # Compute centroids
+    cluster_centroids = gdf_clustered.dissolve(by='cluster').centroid
+    cluster_centroids = cluster_centroids.rename("geometry")
+
+    # Combine summed energy data with centroids
+    summary = pd.concat([energy_sums, cluster_centroids], axis=1).reset_index()
+
+    # Convert to GeoDataFrame
+    gdf_summary = gpd.GeoDataFrame(
+        summary, geometry='geometry', crs="EPSG:4326")
+
+    return gdf_summary
+
+
+# KMeans clustering for GeoDataFrame
+def _cluster_gdf_kmeans(gdf, n_clusters=5):
+    """
+    Perform KMeans clustering on a GeoDataFrame using lat/lon.
+
+    Parameters:
+    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries.
+    n_clusters (int): The number of clusters to form.
+
+    Returns:
+    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
+    """
+    # Ensure geometry is in lat/lon
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
+
+    coords = gdf[['lat', 'lon']].to_numpy()
+    scaler = StandardScaler()
+    coords_scaled = scaler.fit_transform(coords)
+
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords_scaled)
+    gdf['cluster'] = kmeans.labels_
+
+    return gdf
