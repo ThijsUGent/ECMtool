@@ -38,6 +38,154 @@ type_ener_feed = ["electricity_[mwh/t]",
                   "natural_gas_[t/t]",
                   "plastic_mix_[t/t]"]
 
+color_map = {
+    "electricity_[mwh/t]": "#fff7bc",  # yellow pastel
+    "electricity_[gj/t]": "#ffeda0",   # yellow pastel
+    "alternative_fuel_mixture_[gj/t]": "#fdd49e",  # light orange
+    "alternative_fuel_mixture_[t/t]": "#d7301f",   # dark red
+    "biomass_[gj/t]": "#c7e9c0",       # light green
+    "biomass_[t/t]": "#238b45",        # dark green
+    "biomass_waste_[gj/t]": "#a1d99b",  # green pastel
+    "biomass_waste_[t/t]": "#006d2c",  # deep green
+    "coal_[gj/t]": "#cccccc",          # light grey
+    "coal_[t/t]": "#000000",           # black
+    "coke_[gj/t]": "#bdbdbd",          # grey
+    "coke_[t/t]": "#636363",           # dark grey
+    "crude_oil_[gj/t]": "#fdae6b",     # orange pastel
+    "crude_oil_[t/t]": "#e6550d",      # burnt orange
+    "hydrogen_[gj/t]": "#b7d7f4",      # light blue
+    "hydrogen_[t/t]": "#3484d4",       # deep blue
+    "methanol_[gj/t]": "#fdd0a2",      # soft orange
+    "methanol_[t/t]": "#d94801",       # dark orange
+    "ammonia_[gj/t]": "#d9f0a3",       # lime pastel
+    "ammonia_[t/t]": "#78c679",        # dark lime
+    "naphtha_[gj/t]": "#fcbba1",       # peach
+    "naphtha_[t/t]": "#cb181d",        # dark red
+    "natural_gas_[gj/t]": "#89a0d0",   # light blue
+    "natural_gas_[t/t]": "#074c88",    # medium blue
+    "plastic_mix_[gj/t]": "#e5e5e5",   # very light grey
+    "plastic_mix_[t/t]": "#737373"     # medium grey
+}
+
+
+def map_per_pathway():
+    path = "data/production_site.csv"
+    df = pd.read_csv(path)
+
+    df = df[df["wp1_model_product_name"] != "not included in blue-print model"]
+
+    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
+        st.info("No selections stored yet.")
+        return
+
+    pathways_names = list(
+        st.session_state["Pathway name"].keys())
+
+    # Initialisation of all sectors
+    sectors_all_list = ["Chemical", "Cement",
+                        "Refineries", "Fertilisers", "Steel", "Glass"]
+
+    type_ener_feed_gj = [item for item in type_ener_feed if "[gj/t]" in item]
+    type_ener_feed_t = [item for item in type_ener_feed if "[t/t]" in item]
+    type_ener_feed_mwh = [item for item in type_ener_feed if "[mwh/t]" in item]
+
+    # Labels only (without unit suffix)
+    type_ener_name = ["_".join(item.split("_")[:-1])
+                      for item in type_ener_feed_gj]
+    type_feed_name = ["_".join(item.split("_")[:-1])
+                      for item in type_ener_feed_t]
+
+    col1, col2 = st.columns([1, 4])  # 3:1 ratio, left wide, right narrow
+
+    with col1:
+        ener_or_feed = st.radio(
+            "Select unit", ["Energy per ton (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
+        )
+        if ener_or_feed == "Energy per ton (GJ/t)":
+            with st.expander("Energy carriers"):
+                select_all_energy = st.toggle(
+                    "Select all", key="select_all_energy", value=True)
+
+                if select_all_energy:
+                    default_ener = type_ener_name
+                else:
+                    default_ener = []
+
+                options_energy = type_ener_name
+                values_energy = type_ener_feed_gj
+
+                selected_energy_labels = st.pills(
+                    "Choose energy carriers",
+                    options_energy,
+                    default=default_ener,
+                    label_visibility="visible",
+                    selection_mode="multi",
+                    key="energy_pills"
+                )
+
+                selected_columns = [
+                    values_energy[options_energy.index(label)] for label in selected_energy_labels
+                ]
+
+        elif ener_or_feed == "Tonne per tonne (t/t)":
+            with st.expander("Feedstock"):
+                select_all_feed = st.toggle(
+                    "Select all", key="select_all_feed", value=True)
+
+                if select_all_feed:
+                    default_feed = type_feed_name
+                else:
+                    default_feed = []
+
+                options_feed = type_feed_name
+                values_feed = type_ener_feed_t
+
+                selected_feed_labels = st.pills(
+                    "Choose feedstock",
+                    options_feed,
+                    default=default_feed,
+                    label_visibility="visible",
+                    selection_mode="multi",
+                    key="feed_pills"
+                )
+
+                selected_columns = [
+                    values_feed[options_feed.index(label)] for label in selected_feed_labels
+                ]
+
+        st.text('Edit utilisation rate per sector')
+
+        with st.expander("Utilisation rate"):
+            sector_utilization = _get_utilization_rates(sectors_all_list)
+        dict_gdf = {}
+        for pathway in pathways_names:
+            gdf_prod_x_perton = _get_gdf_prod_x_perton(
+                df, pathway, sector_utilization, selected_columns)
+            # Convert to GeoDataFrame
+            dict_gdf[pathway] = gdf_prod_x_perton
+
+        choice = st.radio("Cluster method", ["DBSCAN", "KMEANS"])
+        min_samples, radius, n_cluster = _edit_clustering(choice)
+        dict_gdf_clustered = {}
+        for pathway in pathways_names:
+            gdf_clustered = _run_clustering(
+                choice, dict_gdf[pathway], min_samples, radius, n_cluster)
+            dict_gdf_clustered[pathway] = gdf_clustered
+
+        map_choice = st.radio("Mapping view", ["cluster", "site"])
+    with col2:
+        pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
+        if map_choice == "cluster":
+            gdf_clustered_centroid = _summarise_clusters_by_centroid(
+                dict_gdf_clustered[pathway])
+            selected = _mapping_chart_per_ener_feed_cluster(
+                gdf_clustered_centroid)
+        if map_choice == "site":
+            selected = _mapping_chart_per_ener_feed_sites(
+                dict_gdf_clustered[pathway])
+
+        st.write(selected)
+
 
 def _get_utilization_rates(sectors):
     sector_utilization_defaut = {
@@ -58,7 +206,7 @@ def _get_utilization_rates(sectors):
     return sector_utilization
 
 
-def _get_gdf_prod_x_perton(df, pathway, sector_utilization):
+def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     perton = st.session_state["Pathway name"][pathway]
 
     # Convert WKB hex to geometry
@@ -89,7 +237,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization):
     # Multiply per ton with matching product
     sectors_products = list(perton.keys())
     df_pathway_weighted = []
-    columns = type_ener_feed
+    columns = selected_columns
     for sector_product in sectors_products:
         product = sector_product.split("_")[-1]
         sec = sector_product.split("_")[0]
@@ -125,6 +273,9 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization):
 
 
 def _mapping_chart_per_ener_feed_cluster(gdf):
+    def _get_radius(gdf):
+        gdf.sum
+
     # Extract latitude and longitude
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
@@ -141,7 +292,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf):
 
     gdf["color"] = gdf["cluster"].map(cluster_color_map)
     colormap = "color"
-
+    get_radius = _get_radius(gdf)
     # Create the PyDeck layer
     point_layer = pdk.Layer(
         "ScatterplotLayer",
@@ -229,56 +380,25 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     return selected
 
 
-def _run_clustering(choice, gdf):
+def _edit_clustering(choice):
     if choice == "DBSCAN":
         min_samples = st.slider("Min samples", 1, 10, value=5)
         radius = st.slider("Distance", 1, 100, step=10, value=10)
-        gdf_clustered = _cluster_gdf_dbscan(gdf, min_samples, radius)
+        return min_samples, radius, None
 
     if choice == "KMEANS":
         n_cluster = st.slider("Nbr of cluster", 10, 200, step=10, value=100)
+        return None, None, n_cluster
+
+
+def _run_clustering(choice, gdf, min_samples, radius, n_cluster):
+    if choice == "DBSCAN":
+        gdf_clustered = _cluster_gdf_dbscan(gdf, min_samples, radius)
+
+    if choice == "KMEANS":
         gdf_clustered = _cluster_gdf_kmeans(gdf, n_cluster)
 
     return gdf_clustered
-
-
-def map_per_pathway():
-    path = "data/production_site.csv"
-    df = pd.read_csv(path)
-
-    df = df[df["wp1_model_product_name"] != "not included in blue-print model"]
-
-    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
-        st.info("No selections stored yet.")
-        return
-
-    pathways_names = list(
-        st.session_state["Pathway name"].keys())
-
-    # Initialisation of all sectors
-    sectors_all_list = ["Chemical", "Cement",
-                        "Refineries", "Fertilisers", "Steel", "Glass"]
-
-    sector_utilization = _get_utilization_rates(sectors_all_list)
-
-    for pathway in pathways_names:
-        st.write(pathway)
-        gdf_prod_x_perton = _get_gdf_prod_x_perton(
-            df, pathway, sector_utilization)
-    # Convert to GeoDataFrame
-    gdf = gdf_prod_x_perton
-
-    choice = st.radio("Cluster method", ["DBSCAN", "KMEANS"])
-    gdf_clustered = _run_clustering(choice, gdf)
-
-    map_choice = st.radio("Mapping view", ["cluster", "site"])
-    if map_choice == "cluster":
-        gdf_clustered_centroid = _summarise_clusters_by_centroid(gdf_clustered)
-        selected = _mapping_chart_per_ener_feed_cluster(gdf_clustered_centroid)
-    if map_choice == "site":
-        selected = _mapping_chart_per_ener_feed_sites(gdf_clustered)
-
-    st.write(selected)
 
 
 def map_per_utlisation_rate():

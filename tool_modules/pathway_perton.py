@@ -182,55 +182,62 @@ def perton_page():
     col1, col2 = st.columns([1, 4])  # 3:1 ratio, left wide, right narrow
 
     with col1:
-        with st.expander("Energy carriers"):
-            select_all_energy = st.toggle(
-                "Select all", key="select_all_energy", value=True)
+        ener_or_feed = st.radio(
+            "Select unit", ["Energy per ton (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
+        )
+        if ener_or_feed == "Energy per ton (GJ/t)":
+            with st.expander("Energy carriers"):
+                select_all_energy = st.toggle(
+                    "Select all", key="select_all_energy", value=True)
 
-            if select_all_energy:
-                default_ener = type_ener_name
-            else:
-                default_ener = []
+                if select_all_energy:
+                    default_ener = type_ener_name
+                else:
+                    default_ener = []
 
-            options_energy = type_ener_name
-            values_energy = type_ener_feed_gj
+                options_energy = type_ener_name
+                values_energy = type_ener_feed_gj
 
-            selected_energy_labels = st.pills(
-                "Choose energy carriers",
-                options_energy,
-                default=default_ener,
-                label_visibility="visible",
-                selection_mode="multi",
-                key="energy_pills"
-            )
+                selected_energy_labels = st.pills(
+                    "Choose energy carriers",
+                    options_energy,
+                    default=default_ener,
+                    label_visibility="visible",
+                    selection_mode="multi",
+                    key="energy_pills"
+                )
 
-            selected_energy = [
-                values_energy[options_energy.index(label)] for label in selected_energy_labels
-            ]
+                selected_energy = [
+                    values_energy[options_energy.index(label)] for label in selected_energy_labels
+                ]
+                selected_feedstock = []
 
-        with st.expander("Feedstock"):
-            select_all_feed = st.toggle(
-                "Select all", key="select_all_feed", value=True)
+        elif ener_or_feed == "Tonne per tonne (t/t)":
+            with st.expander("Feedstock"):
+                select_all_feed = st.toggle(
+                    "Select all", key="select_all_feed", value=True)
 
-            if select_all_feed:
-                default_feed = type_feed_name
-            else:
-                default_feed = []
+                if select_all_feed:
+                    default_feed = type_feed_name
+                else:
+                    default_feed = []
 
-            options_feed = type_feed_name
-            values_feed = type_ener_feed_t
+                options_feed = type_feed_name
+                values_feed = type_ener_feed_t
 
-            selected_feed_labels = st.pills(
-                "Choose feedstock",
-                options_feed,
-                default=default_feed,
-                label_visibility="visible",
-                selection_mode="multi",
-                key="feed_pills"
-            )
+                selected_feed_labels = st.pills(
+                    "Choose feedstock",
+                    options_feed,
+                    default=default_feed,
+                    label_visibility="visible",
+                    selection_mode="multi",
+                    key="feed_pills"
+                )
 
-            selected_feedstock = [
-                values_feed[options_feed.index(label)] for label in selected_feed_labels
-            ]
+                selected_feedstock = [
+                    values_feed[options_feed.index(label)] for label in selected_feed_labels
+                ]
+                selected_energy = []
 
         type_of_perton = st.radio("Select which specific energy to show", [
             "Per route", "Weighted by sector"])
@@ -259,9 +266,6 @@ def perton_page():
                 st.warning("Please select at least 1 pathways.")
 
     with col2:
-        ener_or_feed = st.radio(
-            "Select unit", ["Energy per ton (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
-        )
         if type_of_perton == "Per route":
             st.subheader("Perton per route")
             _plot_per_route(selected_feedstock, selected_energy,
