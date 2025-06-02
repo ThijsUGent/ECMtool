@@ -1,3 +1,5 @@
+import base64
+from io import BytesIO
 from tool_modules.cluster import *
 import streamlit as st
 import pandas as pd
@@ -6,10 +8,16 @@ from shapely import wkb
 import pydeck as pdk
 import numpy as np
 import matplotlib.pyplot as plt
-
+import streamlit as st
+import pydeck as pdk
+import pandas as pd
+from io import BytesIO
+import base64
+import os
 from sklearn.cluster import DBSCAN
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+import plotly.express as px
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -66,6 +74,21 @@ color_map = {
     "plastic_mix_[gj/t]": "#e5e5e5",   # very light grey
     "plastic_mix_[t/t]": "#737373"     # medium grey
 }
+
+
+def extend_color_map_with_ton(original_map):
+    extended_map = {}
+    for key, color in original_map.items():
+        ton_key = key + " ton"
+        extended_map[ton_key] = color
+    return extended_map
+
+
+color_map_ton = extend_color_map_with_ton(color_map)
+
+
+def map_per_utlisation_rate():
+    st.write(color_map_ton)
 
 
 def map_per_pathway():
@@ -176,15 +199,75 @@ def map_per_pathway():
     with col2:
         pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
         if map_choice == "cluster":
+
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             selected = _mapping_chart_per_ener_feed_cluster(
-                gdf_clustered_centroid)
+                gdf_clustered_centroid, color_map_ton, ener_or_feed)
         if map_choice == "site":
             selected = _mapping_chart_per_ener_feed_sites(
                 dict_gdf_clustered[pathway])
+        _tree_map(selected)
 
-        st.write(selected)
+
+def _tree_map(selected):
+    df = None
+    if selected and "objects" in selected:
+        cluster_objs = selected["objects"].get("cluster", [])
+        if cluster_objs:
+            selected_obj = cluster_objs[0]  # First selected item
+
+            # Optionally convert to DataFrame
+            import pandas as pd
+            df = pd.DataFrame([selected_obj])
+
+    if df is not None:
+        columns = [col for col in df.columns if any(
+            col.startswith(f"{feed} ") for feed in type_ener_feed) or col == "total_energy" or col == "unit"]
+        columns_plot = [col for col in df.columns if any(
+            col.startswith(f"{feed} ") for feed in type_ener_feed)]
+        df[columns]
+
+        # Plot treemap (area = value, color = color_value)
+        # Convert that single row into a long dataframe:
+        row = df.iloc[0]  # select the single row
+
+        df_long = pd.DataFrame({
+            "energy_source": columns_plot,
+            "value": [row[col] for col in columns_plot],
+            "color_value": [color_map_ton[col] for col in columns_plot]
+        })
+
+        # Add a tooltip value in TWh only for electricity
+        def to_twh(val, unit):
+            if unit.lower() == "gj":
+                return val / 3.6e6  # 1 TWh = 3.6 million GJ
+            elif unit.lower() == "mwh":
+                return val / 1e6    # 1 TWh = 1 million MWh
+            else:
+                return None
+        # Add a label that removes unit pattern and appends the unit from the row
+        df_long["label"] = df_long["energy_source"].str.replace(
+            r"_\[.*\] ton", "", regex=True) + f" ({row['unit']})"
+
+        df_long["tooltip_twh"] = [
+            f"{to_twh(val, row['unit']):.3f} TWh" if "electricity" in label else ""
+            for val, label in zip(df_long["value"], df_long["label"])
+        ]
+
+        # Create treemap
+        fig = px.treemap(
+            df_long,
+            path=["label"],
+            values="value",
+            color="energy_source",
+            custom_data=["tooltip_twh"],
+            title="Energy Use Breakdown"
+        )
+
+        fig.update_traces(marker_colors=df_long["color_value"].tolist())
+        st.plotly_chart(fig)
+        st.write(df_long)
 
 
 def _get_utilization_rates(sectors):
@@ -267,63 +350,159 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     for column in columns:
         gdf_prod_x_perton[column] = gdf_prod_x_perton[column] * \
             gdf_prod_x_perton["prod_rate"]
+
+    gdf_prod_x_perton['total_energy'] = gdf_prod_x_perton[columns].sum(
+        axis=1)
+
+    for column in columns:
         gdf_prod_x_perton.rename(
             columns={column: f"{column} ton"}, inplace=True)
+    gdf_prod_x_perton = gdf_prod_x_perton[gdf_prod_x_perton["sector_name"].notnull(
+    )]
+
     return gdf_prod_x_perton
 
 
-def _mapping_chart_per_ener_feed_cluster(gdf):
-    def _get_radius(gdf):
-        gdf.sum
+def _mapping_chart_per_ener_feed_cluster(gdf, color_map_ton, ener_or_feed):
+    if ener_or_feed == "Tonne per tonne (t/t)":
+        unit = "t"
+    elif ener_or_feed == "Energy per ton (GJ/t)":
+        unit = "GJ"
+    energy_cols = [col for col in gdf.columns if any(
+        col.startswith(f"{feed} ") for feed in type_ener_feed)]
+    if (gdf["total_energy"] == 0).all():
+        return st.error("Select feedstock(s) or energy carrier(s)")
+    gdf["unit"] = unit
+    # Pre-filter for performance
+    gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
+    gdf = gdf[gdf["total_energy"] > 0].copy()
+    # Add a rounded total_energy column (integer)
+    gdf['total_energy_rounded'] = gdf['total_energy'].round().astype(int)
+    # Coordinates
+    gdf["lon"] = gdf.geometry.x
+    gdf["lat"] = gdf.geometry.y
 
-    # Extract latitude and longitude
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
+    def _get_radius(df):
+        top_1_val = df["total_energy"].quantile(0.99)
+        top_10_val = df["total_energy"].quantile(0.90)
+        mean_val = df["total_energy"].mean()
 
-    unique_clusters = gdf["cluster"].unique()
-    cmap = plt.get_cmap("tab20", len(unique_clusters))
-    cluster_color_map = {}
-    for i, cluster in enumerate(unique_clusters):
-        if cluster == -1:
-            cluster_color_map[cluster] = [0, 0, 0]  # black
-        else:
-            rgb = [int(255 * c) for c in cmap(i % cmap.N)[:3]]
-            cluster_color_map[cluster] = rgb
+        def classify(val):
+            if val >= top_1_val:
+                return 20000
+            elif val >= top_10_val:
+                return 12000
+            elif val >= mean_val:
+                return 9700
+            else:
+                return 8000
 
-    gdf["color"] = gdf["cluster"].map(cluster_color_map)
-    colormap = "color"
-    get_radius = _get_radius(gdf)
-    # Create the PyDeck layer
+        radius = df["total_energy"].apply(classify)
+        thresholds = {
+            "top_1%": round(top_1_val, 2),
+            "top_10%": round(top_10_val, 2),
+            "mean": round(mean_val, 2),
+        }
+        return radius, thresholds
+
+    def pie_chart_conic_gradient(row):
+        values = row[energy_cols]
+        filtered = [(col, val)
+                    for col, val in zip(energy_cols, values) if val > 0]
+        if not filtered:
+            return ""
+
+        total = sum(val for _, val in filtered)
+        start = 0
+        parts = []
+        legend_items = []
+
+        for col, val in filtered:
+            pct = val / total * 100
+            end = start + pct
+            colour = color_map_ton.get(col, "#000000")
+            parts.append(f"{colour} {start:.1f}% {end:.1f}%")
+
+            # Legend row
+            legend_items.append(f"""
+                <div style="display: flex; align-items: center; margin-bottom: 2px;">
+                    <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
+                    <span style="font-size: 11px; color: white;">{col}</span>
+                </div>
+            """)
+            start = end
+
+        gradient_str = ", ".join(parts)
+        legend_html = "".join(legend_items)
+
+        return f"""
+        <div style="display: flex; flex-direction: row; gap: 10px; align-items: flex-start;">
+            <div style="
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                background: conic-gradient({gradient_str});
+                flex-shrink: 0;
+            "></div>
+            <div style="display: flex; flex-direction: column;">
+                {legend_html}
+            </div>
+        </div>
+        """
+
+    # Apply radius and pie HTML
+    gdf["radius"], thresholds = _get_radius(gdf)
+    gdf["pie_html"] = gdf.apply(pie_chart_conic_gradient, axis=1)
+
+    # Main layer
     point_layer = pdk.Layer(
         "ScatterplotLayer",
         data=gdf,
-        id="sites",
-        get_position='[lon, lat]',
-        get_radius=1e4,
+        id="cluster",
+        get_position="[lon, lat]",
+        get_radius="radius",
+        get_fill_color=color_map,
         pickable=True,
-        get_fill_color=colormap
+        auto_highlight=True,
+        pitch=0
     )
 
-    # Set the initial view state
     view_state = pdk.ViewState(
-        latitude=gdf['lat'].mean(),
-        longitude=gdf['lon'].mean(),
-        zoom=3,
+        latitude=gdf["lat"].mean(),
+        longitude=gdf["lon"].mean(),
+        zoom=5,
         pitch=0,
     )
 
-    # Render the interactive map with tooltips and capture selected data
-    chart = pdk.Deck(
+    # Tooltip with dynamic HTML pies
+    tooltip = {
+        "html": """
+        <b>Cluster:</b> {cluster} <br/>
+        <b>Total Energy:</b> {total_energy_rounded} {unit} <br/>
+        {pie_html}
+    """,
+        "style": {
+            "backgroundColor": "rgba(0,0,0,0.7)",
+            "color": "white",
+            "fontSize": "12px",
+            "padding": "10px",
+            "borderRadius": "5px",
+        }
+    }
+
+    # Deck map with embedded legend and tooltip
+    deck = pdk.Deck(
         layers=[point_layer],
         initial_view_state=view_state,
-        tooltip={"text": "Sector: {aidres_sector_name}"},
-        map_style=None,
+        tooltip=tooltip,
+        map_style=None
     )
-    event = st.pydeck_chart(chart, on_select="rerun",
+
+    # Render in Streamlit
+    event = st.pydeck_chart(deck, on_select="rerun",
                             selection_mode="single-object")
 
     selected = event.selection
-
     return selected
 
 
@@ -392,20 +571,19 @@ def _edit_clustering(choice):
 
 
 def _run_clustering(choice, gdf, min_samples, radius, n_cluster):
+
     if choice == "DBSCAN":
         gdf_clustered = _cluster_gdf_dbscan(gdf, min_samples, radius)
 
     if choice == "KMEANS":
         gdf_clustered = _cluster_gdf_kmeans(gdf, n_cluster)
 
-    return gdf_clustered
+    if (gdf_clustered["cluster"] != -1).any():
+        return gdf_clustered
+    else:
+        return gdf
 
 
-def map_per_utlisation_rate():
-    st.write("Contruction")
-
-
-# DBSCAN clustering for GeoDataFrame
 def _cluster_gdf_dbscan(gdf, min_samples, radius):
     """
     Perform DBSCAN clustering on a GeoDataFrame using lat/lon.
@@ -450,7 +628,7 @@ def _summarise_clusters_by_centroid(gdf_clustered):
     if 'cluster' not in gdf_clustered.columns:
         raise ValueError("GeoDataFrame must contain a 'cluster' column.")
     columns = [col for col in gdf_clustered.columns if any(
-        col.startswith(f"{feed} ") for feed in type_ener_feed)]
+        col.startswith(f"{feed} ") for feed in type_ener_feed) or col == "total_energy"]
 
     def _cluster_centroid(cluster_df):
         """Compute centroid of a cluster."""
@@ -459,10 +637,13 @@ def _summarise_clusters_by_centroid(gdf_clustered):
         points = MultiPoint(cluster_df.geometry.tolist())
         return [points.centroid.y, points.centroid.x]
 
-    cluster_centers = (
-        gdf_clustered[gdf_clustered["cluster"] != -
-                      1].groupby("cluster").apply(_cluster_centroid)
-    )
+    if (gdf_clustered["cluster"] != -1).any():
+        cluster_centers = (
+            gdf_clustered[gdf_clustered["cluster"] != -
+                          1].groupby("cluster").apply(_cluster_centroid)
+        )
+    else:
+        return gdf_clustered
     centroids_df = pd.DataFrame(
         cluster_centers.tolist(),
         columns=["Latitude", "Longitude"],
