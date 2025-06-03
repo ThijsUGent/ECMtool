@@ -252,6 +252,11 @@ def create_path(df, columns_to_show_selection):
                         else:
                             st.error(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+    all_empty = all(df.empty for df in dict_routes_selected.values())
+
+    if all_empty:
+        st.warning("Select at least one production route")
+        return {}, pathway_name
 
     return dict_routes_selected, pathway_name
 
@@ -265,7 +270,7 @@ def upload_path(df, columns_to_show_selection):
     uploaded_file = st.file_uploader(
         "Upload your pathway file here", type=["txt"]
     )
-    pathway_name = None
+    pathway_name = "Upload file"
     if uploaded_file:
 
         configuration_id_EUMIX_weight, pathway_name = import_to_dict(

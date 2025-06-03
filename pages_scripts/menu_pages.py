@@ -20,8 +20,9 @@ def welcome():
             The AIDRES project, funded by the European Commission’s Directorate-General for Energy (DG ENER), aims to develop AI-powered digital tools to facilitate industrial decarbonisation. By identifying, evaluating, and optimising opportunities for resource and energy symbiosis within and between industrial clusters, AIDRES supports both industries and policymakers in accelerating the transition to a more circular and climate-neutral economy.
             """)
 
-    if st.button("Start with a pathway"):
-        st.session_state["start_button_pressed"] = True
+    st.markdown("""
+:arrow_backward: Start with the **Pathway** section in the sidebar. Save one or several pathways before proceeding.
+""")
 
 
 def Documentation():
