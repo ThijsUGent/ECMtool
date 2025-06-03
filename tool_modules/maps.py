@@ -207,10 +207,13 @@ def map_per_pathway():
         if map_choice == "site":
             selected = _mapping_chart_per_ener_feed_sites(
                 dict_gdf_clustered[pathway])
-        _tree_map(selected)
+        df_selected = _clean_seleted_to_df(selected)
+
+        _tree_map(df_selected)
+        _site_within_cluster(df_selected, pathway, dict_gdf_clustered)
 
 
-def _tree_map(selected):
+def _clean_seleted_to_df(selected):
     df = None
     if selected and "objects" in selected:
         cluster_objs = selected["objects"].get("cluster", [])
@@ -220,6 +223,54 @@ def _tree_map(selected):
             # Optionally convert to DataFrame
             import pandas as pd
             df = pd.DataFrame([selected_obj])
+    return df
+
+
+def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
+    if df_selected is not None:
+        df = dict_gdf_clustered[pathway]
+        nbr_cluster = int(df_selected["cluster"])
+        df_filtered_cluster = df[df["cluster"] == nbr_cluster]
+        with st.expander("Show sites within the cluster"):
+            df_filtered_cluster_show = df_filtered_cluster[[
+                "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+            st.write(df_filtered_cluster_show)
+
+
+def _energy_convert(value, unit, elec=False):
+    """
+    Converts energy values from GJ to higher units (TJ, PJ) or to MWh/TWh if elec=True.
+
+    Parameters:
+        value (float): Energy value
+        unit (str): Initial unit, expected to be 'GJ'
+        elec (bool): If True, converts to MWh or TWh
+
+    Returns:
+        (rounded_value, new_unit)
+    """
+    if unit != "GJ":
+        raise ValueError("This function only supports conversion from GJ")
+
+    if elec:
+        # 1 GJ = 0.277778 MWh
+        value_mwh = value * 0.277778
+        if value_mwh >= 1_000_000:
+            return round(value_mwh / 1_000_000), "TWh"
+        else:
+            return round(value_mwh), "MWh"
+    else:
+        if value >= 1_000_000_000:
+            return round(value / 1e9), "EJ"
+        elif value >= 1_000_000:
+            return round(value / 1e6), "PJ"
+        elif value >= 1_000:
+            return round(value / 1e3), "TJ"
+        else:
+            return round(value), "GJ"
+
+
+def _tree_map(df):
 
     if df is not None:
         columns = [col for col in df.columns if any(
@@ -238,36 +289,25 @@ def _tree_map(selected):
             "color_value": [color_map_ton[col] for col in columns_plot]
         })
 
-        # Add a tooltip value in TWh only for electricity
-        def to_twh(val, unit):
-            if unit.lower() == "gj":
-                return val / 3.6e6  # 1 TWh = 3.6 million GJ
-            elif unit.lower() == "mwh":
-                return val / 1e6    # 1 TWh = 1 million MWh
-            else:
-                return None
         # Add a label that removes unit pattern and appends the unit from the row
         df_long["label"] = df_long["energy_source"].str.replace(
             r"_\[.*\] ton", "", regex=True) + f" ({row['unit']})"
+        df_long["unit"] = f"{row['unit']}"
 
-        df_long["tooltip_twh"] = [
-            f"{to_twh(val, row['unit']):.3f} TWh" if "electricity" in label else ""
-            for val, label in zip(df_long["value"], df_long["label"])
-        ]
-
+        total_energy = df_long["value"].sum()
+        unit = df_long["unit"].unique()[0]
+        total_energy, unit_real = _energy_convert(total_energy, unit)
         # Create treemap
         fig = px.treemap(
             df_long,
             path=["label"],
             values="value",
             color="energy_source",
-            custom_data=["tooltip_twh"],
-            title="Energy Use Breakdown"
+            title="Energy Use Breakdown",
+            subtitle=f"Total energy: {total_energy} {unit_real}"
         )
-
         fig.update_traces(marker_colors=df_long["color_value"].tolist())
         st.plotly_chart(fig)
-        st.write(df_long)
 
 
 def _get_utilization_rates(sectors):
@@ -538,7 +578,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         data=gdf,
         id="sites",
         get_position='[lon, lat]',
-        get_radius=1e4,
+        get_radius=1e3,
         pickable=True,
         get_fill_color=colormap,
         pitch=0,
@@ -556,7 +596,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     chart = pdk.Deck(
         layers=[point_layer],
         initial_view_state=view_state,
-        tooltip={"text": "Sector: {aidres_sector_name}"},
+        tooltip={"text": "Cluster: {cluster} \n Site Name: {site_name}"},
         map_style=None,
     )
     event = st.pydeck_chart(chart, on_select="rerun",
@@ -569,12 +609,12 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
 def _edit_clustering(choice):
     if choice == "DBSCAN":
-        min_samples = st.slider("Min samples", 1, 10, value=5)
-        radius = st.slider("Distance", 1, 100, step=10, value=10)
+        min_samples = st.slider("Min samples", 1, 1, value=5)
+        radius = st.slider("Distance", 1, 100, step=1, value=10)
         return min_samples, radius, None
 
     if choice == "KMEANS":
-        n_cluster = st.slider("Nbr of cluster", 10, 200, step=10, value=100)
+        n_cluster = st.slider("Nbr of cluster", 10, 200, step=1, value=100)
         return None, None, n_cluster
 
 
