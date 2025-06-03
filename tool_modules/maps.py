@@ -198,8 +198,8 @@ def map_per_pathway():
         map_choice = st.radio("Mapping view", ["cluster", "site"])
     with col2:
         pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
-        if map_choice == "cluster":
 
+        if map_choice == "cluster":
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             selected = _mapping_chart_per_ener_feed_cluster(
@@ -319,14 +319,17 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
     # Multiply per ton with matching product
     sectors_products = list(perton.keys())
-    df_pathway_weighted = []
+    df_pathway_weighted = pd.DataFrame()
     columns = selected_columns
+
     for sector_product in sectors_products:
         product = sector_product.split("_")[-1]
-        sec = sector_product.split("_")[0]
+        sector = sector_product.split("_")[0]
         dfs_dict_path = st.session_state["Pathway name"][pathway]
         df_path = pd.concat(dfs_dict_path.values(), ignore_index=True)
-        df_filtered = df_path[df_path["sector_name"] == sec]
+
+        df_filtered = df_path[df_path["product_name"] == product]
+
         if not df_filtered.empty:
             def weighted_avg(df, value_cols, weight_col):
                 return pd.Series({
@@ -336,9 +339,14 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
             df_filtered_weight = df_filtered.groupby("product_name").apply(
                 weighted_avg, value_cols=columns, weight_col="route_weight"
             ).reset_index()
-            df_filtered_weight["sector_name"] = sec  # retain sector info
-            df_pathway_weighted.append(df_filtered_weight)
-    df_pathway_weighted = pd.concat(df_pathway_weighted, ignore_index=True)
+
+            df_filtered_weight["sector_name"] = sector  # retain sector info
+
+            # Correct way to append data to the final DataFrame
+            df_pathway_weighted = pd.concat(
+                [df_pathway_weighted, df_filtered_weight], ignore_index=True)
+
+    # Optional: only display once, outside the loop
 
     gdf_prod_x_perton = gdf_production_site.merge(
         df_pathway_weighted,
@@ -349,7 +357,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
     for column in columns:
         gdf_prod_x_perton[column] = gdf_prod_x_perton[column] * \
-            gdf_prod_x_perton["prod_rate"]
+            gdf_prod_x_perton["prod_rate"] * 1000  # prod rate kt
 
     gdf_prod_x_perton['total_energy'] = gdf_prod_x_perton[columns].sum(
         axis=1)

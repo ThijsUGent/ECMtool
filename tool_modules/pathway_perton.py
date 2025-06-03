@@ -151,21 +151,9 @@ def perton_page():
         st.info("No selections stored yet.")
         return
 
-    # intial number sector
-    sectors_list = []
-    if len(list(
-            st.session_state["Pathway name"].keys())) == 1:
-
-        dict_path1 = st.session_state["Pathway name"][list(
-            st.session_state["Pathway name"].keys())[0]]
-        df_path1 = dict_path1[list(dict_path1.keys())[0]]
-        sector_max_list = df_path1["sector_name"].unique().tolist()
-        sectors_list = sector_max_list
-
-    else:
-        # Initialisation of all sectors
-        sectors_list = ["Chemical", "Cement",
-                        "Refineries", "Fertilisers", "Steel", "Glass"]
+    # Initialisation of all sectors
+    sectors_list = ["Chemical", "Cement",
+                    "Refineries", "Fertilisers", "Steel", "Glass"]
 
     type_ener_feed_gj = [item for item in type_ener_feed if "[gj/t]" in item]
     type_ener_feed_t = [item for item in type_ener_feed if "[t/t]" in item]
