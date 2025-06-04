@@ -659,7 +659,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         data=gdf,
         id="sites",
         get_position='[lon, lat]',
-        get_radius=1e3,
+        get_radius=0.4e4,
         pickable=True,
         get_fill_color=colormap,
         pitch=0,
@@ -695,7 +695,7 @@ def _edit_clustering(choice):
         return min_samples, radius, None
 
     if choice == "KMEANS":
-        n_cluster = st.slider("Nbr of cluster", 10, 200, step=1, value=100)
+        n_cluster = st.slider("Number of clusters", 10, 200, step=1, value=100)
         return None, None, n_cluster
 
 
