@@ -70,6 +70,27 @@ color_map.update({
     for key, value in color_map.items()
 })
 
+# Radius scale
+
+
+def _get_radius(df):
+
+    top_1_val = df["total_energy"].quantile(0.99)
+    top_10_val = df["total_energy"].quantile(0.90)
+    mean_val = df["total_energy"].mean()
+
+    def classify(val):
+        if val >= top_1_val:
+            return 20000
+        elif val >= top_10_val:
+            return 12000
+        elif val >= mean_val:
+            return 9700
+        else:
+            return 8000
+
+    return df["total_energy"].apply(classify)
+
 
 def map_per_utlisation_rate():
     st.write("In progress")
@@ -316,8 +337,9 @@ def _sankey(df, unit):
         energy_cols = [col for col in df.columns if any(
             col.startswith(feed) for feed in type_ener_feed)]
 
-        carrier_labels = [col.replace(
-            '_[gj/t] ton', '').replace('_', ' ') for col in energy_cols]
+        # Option 1: remove last underscore segment and join with space
+        carrier_labels = [" ".join(col.split("_")[:-1]) for col in energy_cols]
+
         sector_labels = df['aidres_sector_name'].unique().tolist()
 
         labels = carrier_labels + sector_labels
@@ -415,8 +437,8 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
                                 "utilization_rate"] = utilization_rate
 
     # Condition : prod_rate if prod_cap extist, but not prod_rate
-    prod_rate_cap_utli_condi = gdf_production_site["utilization_rate"]/100 * \
-        gdf_production_site["prod_cap"]
+    prod_rate_cap_utli_condi = gdf_production_site["utilization_rate"] / \
+        100 * gdf_production_site["prod_cap"]
 
     condition = (gdf_production_site["prod_rate"].isna() &
                  gdf_production_site["prod_cap"].notna() &
@@ -482,20 +504,14 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     type_ener_feed = list(color_map.keys())
-
     # Get energy columns
-    energy_cols = [col for col in gdf.columns if any(
-        col.startswith(f"{feed} ") for feed in type_ener_feed)]
-
+    energy_cols = [col for col in gdf.columns if "[" in col]
     # Clean energy column names
-    gdf.rename(
-        columns={
-            col: col.split("[")[0].replace("_", " ").strip()
-            for col in gdf.columns if col in energy_cols
-        },
-        inplace=True
-    )
+    # Create a mapping from old energy_cols to new names
+    new_names = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
 
+    # Rename columns in gdf accordingly
+    gdf.rename(columns=new_names, inplace=True)
     # Reconfirm updated column names
     energy_cols = [col for col in gdf.columns if any(
         col.startswith(f"{feed.split('_')[0]}") for feed in type_ener_feed)]
@@ -510,24 +526,6 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
     gdf["total_energy_rounded"] = gdf["total_energy"].round().astype(int)
     gdf["lon"] = gdf.geometry.x
     gdf["lat"] = gdf.geometry.y
-
-    # Radius scale
-    def _get_radius(df):
-        top_1_val = df["total_energy"].quantile(0.99)
-        top_10_val = df["total_energy"].quantile(0.90)
-        mean_val = df["total_energy"].mean()
-
-        def classify(val):
-            if val >= top_1_val:
-                return 20000
-            elif val >= top_10_val:
-                return 12000
-            elif val >= mean_val:
-                return 9700
-            else:
-                return 8000
-
-        return df["total_energy"].apply(classify)
 
     gdf["radius"] = _get_radius(gdf)
 
@@ -548,7 +546,8 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
             return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
 
         cx, cy, r = 50, 50, 50
-        paths = []  # <---- Make sure this line is here!
+
+        paths = []
 
         for col, val in filtered:
             pct = val / total
@@ -573,7 +572,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
     gdf["icon_url"] = gdf.apply(generate_pie_svg_base64, axis=1)
     # Build icon data
     icon_data = gdf[["lon", "lat", "icon_url", "total_energy",
-                     "total_energy_rounded", "unit"]].copy()
+                    "total_energy_rounded", "unit", "radius"]].copy()
     icon_data["icon"] = icon_data.apply(lambda row: {
         "url": row["icon_url"],
         "width": 100,
@@ -581,24 +580,14 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         "anchorY": 50
     }, axis=1)
 
-    # Define IconLayer
-    # icon_layer = pdk.Layer(
-    #     "IconLayer",
-    #     data=icon_data,
-    #     get_icon="icon",
-    #     get_size="total_energy",
-    #     size_scale=100,
-    #     get_position=["lon", "lat"],
-    #     pickable=True
-    # )
     icon_layer = pdk.Layer(
         "IconLayer",
         data=icon_data,
         get_icon="icon",
-        get_size=5,    # smaller size
-        size_scale=5,
+        get_size="radius",    # smaller size
+        size_scale=0.002,
         get_position=["lon", "lat"],
-        pickable=True,
+        pickable=False,
     )
 
     view_state = pdk.ViewState(
