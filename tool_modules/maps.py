@@ -590,6 +590,66 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         pickable=False,
     )
 
+    def pie_chart_conic_gradient(row):
+        values = row[energy_cols]
+        filtered = [(col, val)
+                    for col, val in zip(energy_cols, values) if val > 0]
+        if not filtered:
+            return ""
+
+        total = sum(val for _, val in filtered)
+        start = 0
+        parts = []
+        legend_items = []
+
+        for col, val in filtered:
+            pct = val / total * 100
+            end = start + pct
+            colour = color_map.get(col, "#000000")
+            parts.append(f"{colour} {start:.1f}% {end:.1f}%")
+
+            # Legend row
+            legend_items.append(f"""
+                <div style="display: flex; align-items: center; margin-bottom: 2px;">
+                    <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
+                    <span style="font-size: 11px; color: white;">{col}</span>
+                </div>
+            """)
+            start = end
+
+        gradient_str = ", ".join(parts)
+        legend_html = "".join(legend_items)
+
+        return f"""
+        <div style="display: flex; flex-direction: row; gap: 10px; align-items: flex-start;">
+            <div style="
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            "></div>z
+            <div style="display: flex; flex-direction: column;">
+                {legend_html}
+            </div>
+        </div>
+        """
+
+    # Apply radius and pie HTML
+    gdf["pie_html"] = gdf.apply(pie_chart_conic_gradient, axis=1)
+
+    # Main layer
+    point_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=gdf,
+        id="cluster",
+        get_position="[lon, lat]",
+        get_radius=5000,
+        pickable=True,
+        auto_highlight=False,
+        pitch=0,
+        opacity=0  # 20% visible, 80% transparent
+    )
+
     view_state = pdk.ViewState(
         latitude=gdf["lat"].mean(),
         longitude=gdf["lon"].mean(),
@@ -599,7 +659,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     # Tooltip
     tooltip = {
-        "html": "<b>Total energy:</b> {total_energy_rounded} {unit}",
+        "html": "<b>Total energy:</b> {pie_html} {unit}",
         "style": {
             "backgroundColor": "rgba(0,0,0,0.7)",
             "color": "white",
@@ -611,7 +671,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     # Deck instance
     deck = pdk.Deck(
-        layers=[icon_layer],
+        layers=[icon_layer, point_layer],
         initial_view_state=view_state,
         tooltip=tooltip,
         map_style=None
