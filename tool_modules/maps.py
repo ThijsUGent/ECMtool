@@ -46,49 +46,32 @@ type_ener_feed = ["electricity_[mwh/t]",
                   "natural_gas_[t/t]",
                   "plastic_mix_[t/t]"]
 
+# Original color map
 color_map = {
-    "electricity_[mwh/t]": "#fff7bc",  # yellow pastel
     "electricity_[gj/t]": "#ffeda0",   # yellow pastel
     "alternative_fuel_mixture_[gj/t]": "#fdd49e",  # light orange
-    "alternative_fuel_mixture_[t/t]": "#d7301f",   # dark red
     "biomass_[gj/t]": "#c7e9c0",       # light green
-    "biomass_[t/t]": "#238b45",        # dark green
     "biomass_waste_[gj/t]": "#a1d99b",  # green pastel
-    "biomass_waste_[t/t]": "#006d2c",  # deep green
     "coal_[gj/t]": "#cccccc",          # light grey
-    "coal_[t/t]": "#000000",           # black
     "coke_[gj/t]": "#bdbdbd",          # grey
-    "coke_[t/t]": "#636363",           # dark grey
     "crude_oil_[gj/t]": "#fdae6b",     # orange pastel
-    "crude_oil_[t/t]": "#e6550d",      # burnt orange
     "hydrogen_[gj/t]": "#b7d7f4",      # light blue
-    "hydrogen_[t/t]": "#3484d4",       # deep blue
     "methanol_[gj/t]": "#fdd0a2",      # soft orange
-    "methanol_[t/t]": "#d94801",       # dark orange
     "ammonia_[gj/t]": "#d9f0a3",       # lime pastel
-    "ammonia_[t/t]": "#78c679",        # dark lime
     "naphtha_[gj/t]": "#fcbba1",       # peach
-    "naphtha_[t/t]": "#cb181d",        # dark red
     "natural_gas_[gj/t]": "#89a0d0",   # light blue
-    "natural_gas_[t/t]": "#074c88",    # medium blue
     "plastic_mix_[gj/t]": "#e5e5e5",   # very light grey
-    "plastic_mix_[t/t]": "#737373"     # medium grey
 }
 
-
-def extend_color_map_with_ton(original_map):
-    extended_map = {}
-    for key, color in original_map.items():
-        ton_key = key + " ton"
-        extended_map[ton_key] = color
-    return extended_map
-
-
-color_map_ton = extend_color_map_with_ton(color_map)
+# Extend with cleaned keys (underscore removed, suffix dropped, and underscore replaced with space)
+color_map.update({
+    " ".join(key.split("_")[:-1]): value
+    for key, value in color_map.items()
+})
 
 
 def map_per_utlisation_rate():
-    st.write(color_map_ton)
+    st.write("In progress")
 
 
 def map_per_pathway():
@@ -113,18 +96,18 @@ def map_per_pathway():
     type_ener_feed_mwh = [item for item in type_ener_feed if "[mwh/t]" in item]
 
     # Labels only (without unit suffix)
-    type_ener_name = ["_".join(item.split("_")[:-1])
+    type_ener_name = [" ".join(item.split("_")[:-1])
                       for item in type_ener_feed_gj]
-    type_feed_name = ["_".join(item.split("_")[:-1])
+    type_feed_name = [" ".join(item.split("_")[:-1])
                       for item in type_ener_feed_t]
 
     col1, col2 = st.columns([1, 4])  # 3:1 ratio, left wide, right narrow
 
     with col1:
-        ener_or_feed = st.radio(
-            "Select unit", ["Energy per ton (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
+        unit = st.radio(
+            "Select unit", ["GJ", "t"], horizontal=True
         )
-        if ener_or_feed == "Energy per ton (GJ/t)":
+        if unit == "GJ":
             with st.expander("Energy carriers"):
                 select_all_energy = st.toggle(
                     "Select all", key="select_all_energy", value=True)
@@ -150,7 +133,7 @@ def map_per_pathway():
                     values_energy[options_energy.index(label)] for label in selected_energy_labels
                 ]
 
-        elif ener_or_feed == "Tonne per tonne (t/t)":
+        elif unit == "t":
             with st.expander("Feedstock"):
                 select_all_feed = st.toggle(
                     "Select all", key="select_all_feed", value=True)
@@ -175,9 +158,9 @@ def map_per_pathway():
                 selected_columns = [
                     values_feed[options_feed.index(label)] for label in selected_feed_labels
                 ]
-
+        st.text('________')
         st.text('Edit utilisation rate per sector')
-
+        st.markdown(""" *Default value 100 %* """)
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
         dict_gdf = {}
@@ -186,7 +169,7 @@ def map_per_pathway():
                 df, pathway, sector_utilization, selected_columns)
             # Convert to GeoDataFrame
             dict_gdf[pathway] = gdf_prod_x_perton
-
+        st.text('________')
         choice = st.radio("Cluster method", ["DBSCAN", "KMEANS"])
         min_samples, radius, n_cluster = _edit_clustering(choice)
         dict_gdf_clustered = {}
@@ -194,7 +177,7 @@ def map_per_pathway():
             gdf_clustered = _run_clustering(
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
-
+        st.text('________')
         map_choice = st.radio("Mapping view", ["cluster", "site"])
     with col2:
         pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
@@ -203,7 +186,7 @@ def map_per_pathway():
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             selected = _mapping_chart_per_ener_feed_cluster(
-                gdf_clustered_centroid, color_map_ton, ener_or_feed)
+                gdf_clustered_centroid, color_map, unit)
         if map_choice == "site":
             selected = _mapping_chart_per_ener_feed_sites(
                 dict_gdf_clustered[pathway])
@@ -250,7 +233,7 @@ def _energy_convert(value, unit, elec=False):
         (rounded_value, new_unit)
     """
     if unit != "GJ":
-        raise ValueError("This function only supports conversion from GJ")
+        return round(value), unit
 
     if elec:
         # 1 GJ = 0.277778 MWh
@@ -260,9 +243,7 @@ def _energy_convert(value, unit, elec=False):
         else:
             return round(value_mwh), "MWh"
     else:
-        if value >= 1_000_000_000:
-            return round(value / 1e9), "EJ"
-        elif value >= 1_000_000:
+        if value >= 1_000_000:
             return round(value / 1e6), "PJ"
         elif value >= 1_000:
             return round(value / 1e3), "TJ"
@@ -271,58 +252,62 @@ def _energy_convert(value, unit, elec=False):
 
 
 def _tree_map(df):
+    if df is not None and not df.empty:
+        # Select relevant columns
+        columns_plot = [
+            col for col in df.columns
+            if any(col.startswith(feed.split("_")[0]) for feed in type_ener_feed)
+        ]
 
-    if df is not None:
-        columns = [col for col in df.columns if any(
-            col.startswith(f"{feed} ") for feed in type_ener_feed) or col == "total_energy" or col == "unit"]
-        columns_plot = [col for col in df.columns if any(
-            col.startswith(f"{feed} ") for feed in type_ener_feed)]
-        df[columns]
+        # Extract the single row of interest
+        row = df.iloc[0]
 
-        # Plot treemap (area = value, color = color_value)
-        # Convert that single row into a long dataframe:
-        row = df.iloc[0]  # select the single row
-
+        # Prepare long-form dataframe for plotting
         df_long = pd.DataFrame({
             "energy_source": columns_plot,
             "value": [row[col] for col in columns_plot],
-            "color_value": [color_map_ton[col] for col in columns_plot]
+            # fallback colour
+            "color_value": [color_map.get(col, "#cccccc") for col in columns_plot],
         })
 
-        # Add a label that removes unit pattern and appends the unit from the row
+        # Add cleaned label and unit
         df_long["label"] = df_long["energy_source"].str.replace(
-            r"_\[.*\] ton", "", regex=True) + f" ({row['unit']})"
-        df_long["unit"] = f"{row['unit']}"
+            r"_\[.*?\]$", "", regex=True).str.replace("_", " ")
+        df_long["unit"] = row["unit"] if "unit" in row else ""
 
+        # Total energy calculation and conversion
         total_energy = df_long["value"].sum()
-        unit = df_long["unit"].unique()[0]
+        unit = df_long["unit"].iloc[0]
         total_energy, unit_real = _energy_convert(total_energy, unit)
+
         # Create treemap
         fig = px.treemap(
             df_long,
             path=["label"],
             values="value",
             color="energy_source",
-            title="Energy Use Breakdown",
-            subtitle=f"Total energy: {total_energy} {unit_real}"
+            hover_data={"value": True, "unit": True},
         )
+
+        fig.update_layout(
+            title_text=f"Energy Use Breakdown<br><sub>Total energy: {total_energy} {unit_real}</sub>")
         fig.update_traces(marker_colors=df_long["color_value"].tolist())
+
         st.plotly_chart(fig)
 
 
 def _get_utilization_rates(sectors):
     sector_utilization_defaut = {
-        "Fertilisers": 63,
-        "Steel": 80,
+        "Fertilisers": 100,
+        "Steel": 100,
         "Cement": 100,
-        # onethird (from aidres)% from 2022 to 2050 ,  # and 0.58 for assumed utilization rate
-        "Refineries": 20,
-        "Chemical": 75,  # cf cefec advanced competitiveness report page 41
+        "Refineries": 100,
+        "Chemical": 100,
         "Glass": 100,
     }
     sector_utilization = {}
     for sector in sectors:
-        st.text("Ulization rate (%)")
+        st.text("Ulisation rate (%)")
         value = st.slider(f"{sector}", 0, 100,
                           value=sector_utilization_defaut[sector])
         sector_utilization[sector] = value
@@ -411,13 +396,27 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     return gdf_prod_x_perton
 
 
-def _mapping_chart_per_ener_feed_cluster(gdf, color_map_ton, ener_or_feed):
-    if ener_or_feed == "Tonne per tonne (t/t)":
-        unit = "t"
-    elif ener_or_feed == "Energy per ton (GJ/t)":
-        unit = "GJ"
+def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
+
+    # Get energy columns that start with any of the energy feed types
     energy_cols = [col for col in gdf.columns if any(
         col.startswith(f"{feed} ") for feed in type_ener_feed)]
+
+    # Rename energy columns: clean names by removing text after '[' and replacing '_' with spaces
+    gdf.rename(
+        columns={
+            col: col.split("[")[0].replace("_", " ").strip()
+            for col in gdf.columns if col in energy_cols
+        },
+        inplace=True
+    )
+
+    # Update energy_cols after renaming: match updated feed names (without brackets)
+    energy_cols = [col for col in gdf.columns if any(
+        col.startswith(f"{feed.split('_')[0]}") for feed in type_ener_feed)]
+
+    # Show updated energy columns
+
     if (gdf["total_energy"] == 0).all():
         return st.error("Select feedstock(s) or energy carrier(s)")
     gdf["unit"] = unit
@@ -468,7 +467,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map_ton, ener_or_feed):
         for col, val in filtered:
             pct = val / total * 100
             end = start + pct
-            colour = color_map_ton.get(col, "#000000")
+            colour = color_map.get(col, "#000000")
             parts.append(f"{colour} {start:.1f}% {end:.1f}%")
 
             # Legend row

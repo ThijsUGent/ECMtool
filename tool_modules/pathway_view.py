@@ -47,23 +47,24 @@ def _plot_configurations(df, selected_pathway, product, sector, col):
         st.subheader(f"{product}")
 
         # Sort configurations to maintain consistent order
-        df_sorted = df.sort_values(by=["configuration_name", "fuel"])
+        df_sorted = df.sort_values(
+            by=["configuration_name", "energy_feedstock"])
 
-        # Create a colour map for fuel types
-        fuel_types = df_sorted["fuel"].unique()
+        # Create a colour map for energy_feedstock types
+        energy_feedstock_types = df_sorted["energy_feedstock"].unique()
         colours = px.colors.qualitative.Plotly
-        colour_map = {fuel: colours[i % len(colours)]
-                      for i, fuel in enumerate(fuel_types)}
+        colour_map = {energy_feedstock: colours[i % len(colours)]
+                      for i, energy_feedstock in enumerate(energy_feedstock_types)}
 
         # Add a colour column for Plotly
-        df_sorted["colour"] = df_sorted["fuel"].map(colour_map)
+        df_sorted["colour"] = df_sorted["energy_feedstock"].map(colour_map)
 
-        # Create a bar per fuel with a single y-value (product) and stack them
+        # Create a bar per energy_feedstock with a single y-value (product) and stack them
         fig = px.bar(
             df_sorted,
             x="route_weight",
             y=[product]*len(df_sorted),
-            color="fuel",
+            color="energy_feedstock",
             color_discrete_map=colour_map,
             orientation="h",
             hover_data=["route_weight", "configuration_name"]
@@ -101,6 +102,5 @@ def _display_pathway(column_pathway_pairs, sector):
                     product = "-".join(product.split("-")[1:])
 
                 df = dict_routes_selected[k]
-
                 _plot_configurations(df, selected_pathway,
                                      product, sector, col)

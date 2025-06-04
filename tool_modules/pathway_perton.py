@@ -195,10 +195,11 @@ def perton_page():
                     key="energy_pills"
                 )
 
-                selected_energy = [
+                selected_ener_feed = [
                     values_energy[options_energy.index(label)] for label in selected_energy_labels
                 ]
-                selected_feedstock = []
+
+                unit = "GJ/t"
 
         elif ener_or_feed == "Tonne per tonne (t/t)":
             with st.expander("Feedstock"):
@@ -222,10 +223,10 @@ def perton_page():
                     key="feed_pills"
                 )
 
-                selected_feedstock = [
+                selected_ener_feed = [
                     values_feed[options_feed.index(label)] for label in selected_feed_labels
                 ]
-                selected_energy = []
+                unit = "t/t"
 
         type_of_perton = st.radio("Select which specific energy to show", [
             "Per route", "Weighted by sector"])
@@ -256,39 +257,55 @@ def perton_page():
     with col2:
         if type_of_perton == "Per route":
             st.subheader("Perton per route")
-            _plot_per_route(selected_feedstock, selected_energy,
-                            selected_pathways, sector_selected, ener_or_feed)
+            _plot_per_route(selected_ener_feed,
+                            selected_pathways, sector_selected, unit)
         if type_of_perton == "Weighted by sector":
             st.subheader("Perton by product")
             st.subheader("")
-            _plot_per_pathway(selected_feedstock, selected_energy,
-                              selected_pathways, sectors_list, ener_or_feed)
+            _plot_per_pathway(selected_ener_feed,
+                              selected_pathways, sectors_list, unit)
 
 
-def _plot_per_pathway(selected_feedstock, selected_energy, selected_pathways, sector, ener_or_feed):
+def _plot_per_pathway(selected_ener_feed, selected_pathways, sector, unit):
     if selected_pathways and sector:
-        if ener_or_feed == "Energy per ton (GJ/t)":
-            selected_ener_feed = selected_energy
-        if ener_or_feed == "Tonne per tonne (t/t)":
-            selected_ener_feed = selected_feedstock
+        selected_ener_feed
+    nbr_of_columns = len(selected_pathways)
 
-        nbr_of_columns = len(selected_pathways)
-        if nbr_of_columns > 1:
-            cols = st.columns(nbr_of_columns)
-            for i, pathway in enumerate(selected_pathways[:nbr_of_columns]):
-                with cols[i]:
-                    st.write(f"**{pathway}**")
-                    _diplay_chart_per_pathway(
-                        selected_ener_feed, pathway, sector, ener_or_feed)
+    if nbr_of_columns > 1:
+        cols = st.columns(nbr_of_columns)
+        for i, pathway in enumerate(selected_pathways[:nbr_of_columns]):
+            with cols[i]:
+                st.write(f"**{pathway}**")
+                _diplay_chart_per_pathway(
+                    selected_ener_feed, pathway, sector, unit)
 
-        else:
-            pathway = selected_pathways[0]
-            _diplay_chart_per_pathway(
-                selected_ener_feed, pathway, sector, ener_or_feed)
+    else:
+        pathway = selected_pathways[0]
+        _diplay_chart_per_pathway(
+            selected_ener_feed, pathway, sector, unit)
+
+
+def _plot_per_route(selected_ener_feed, selected_pathways, sector, unit):
+    if selected_pathways and sector:
+        if selected_pathways:
+
+            nbr_of_columns = len(selected_pathways)
+            if nbr_of_columns > 1:
+                cols = st.columns(nbr_of_columns)
+                for i, pathway in enumerate(selected_pathways[:nbr_of_columns]):
+                    with cols[i]:
+                        st.write(f"**{pathway}**")
+                        _diplay_chart_per_route(
+                            selected_ener_feed, pathway, sector, unit)
+
+            else:
+                pathway = selected_pathways[0]
+                _diplay_chart_per_route(
+                    selected_ener_feed, pathway, sector, unit)
 
 
 def _diplay_chart_per_pathway(
-        selected_ener_feed, pathway, sector, ener_or_feed):
+        selected_ener_feed, pathway, sector, unit):
 
     columns = selected_ener_feed
 
@@ -324,6 +341,11 @@ def _diplay_chart_per_pathway(
 
     df_combined = df_melted[df_melted["value"] != 0]
 
+    df_combined["unit"] = unit
+
+    df_combined["type"] = df_combined["type"].apply(
+        lambda x: x.split("[")[0].replace("_", " ").strip())
+
     # Filter color map (keys are still the full type, so legend colors may not match exactly)
     color_map_combined = {
         k: v for k, v in color_map.items() if k in df_combined["type"].unique()}
@@ -336,8 +358,8 @@ def _diplay_chart_per_pathway(
         color="type",
         color_discrete_map=color_map_combined,
         orientation="h",
-        title=f"{ener_or_feed} for {pathway} per product",
-        labels={"value": f"{ener_or_feed}",
+        title=f"{unit} for {pathway} per product",
+        labels={"value": f"{unit}",
                 "product_name": "product_name", "type": "Type"}
     )
 
@@ -345,7 +367,7 @@ def _diplay_chart_per_pathway(
                     key=f"plot_combined_{pathway}")
 
 
-def _diplay_chart_per_route(selected_ener_feed, pathway, sector, ener_or_feed):
+def _diplay_chart_per_route(selected_ener_feed, pathway, sector, unit):
 
     columns = selected_ener_feed
     dfs_dict_path = st.session_state["Pathway name"][pathway]
@@ -378,6 +400,11 @@ def _diplay_chart_per_route(selected_ener_feed, pathway, sector, ener_or_feed):
 
         df_combined = df_combined[df_combined["value"] != 0]
 
+        df_combined["unit"] = unit
+
+        df_combined["type"] = df_combined["type"].apply(
+            lambda x: x.split("[")[0].replace("_", " ").strip())
+
         # Filter color map (keys are still the full type, so legend colors may not match exactly)
         color_map_combined = {
             k: v for k, v in color_map.items() if k in df_combined["type"].unique()}
@@ -390,33 +417,10 @@ def _diplay_chart_per_route(selected_ener_feed, pathway, sector, ener_or_feed):
             color="type",
             color_discrete_map=color_map_combined,
             orientation="h",
-            title=f"{ener_or_feed} for {product_name} - {pathway} ",
-            labels={"value": f"{ener_or_feed})",
+            title=f"{unit} for {product_name} - {pathway} ",
+            labels={"value": f" {unit}",
                     "configuration_name": "Configuration", "type": "Type"}
         )
 
         st.plotly_chart(fig_combined, use_container_width=True,
                         key=f"plot_combined_{pathway}-{sector}-{product_name}")
-
-
-def _plot_per_route(selected_feedstock, selected_energy, selected_pathways, sector, ener_or_feed):
-    if selected_pathways and sector:
-        if selected_pathways:
-            if ener_or_feed == "Energy per ton (GJ/t)":
-                selected_ener_feed = selected_energy
-            if ener_or_feed == "Tonne per tonne (t/t)":
-                selected_ener_feed = selected_feedstock
-
-        nbr_of_columns = len(selected_pathways)
-        if nbr_of_columns > 1:
-            cols = st.columns(nbr_of_columns)
-            for i, pathway in enumerate(selected_pathways[:nbr_of_columns]):
-                with cols[i]:
-                    st.write(f"**{pathway}**")
-                    _diplay_chart_per_route(
-                        selected_ener_feed, pathway, sector, ener_or_feed)
-
-        else:
-            pathway = selected_pathways[0]
-            _diplay_chart_per_route(
-                selected_ener_feed, pathway, sector, ener_or_feed)

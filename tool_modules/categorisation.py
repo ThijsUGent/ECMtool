@@ -14,7 +14,7 @@ def process_configuration_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             elif char == ")":
                 stack.pop()
                 if not stack:
-                    return s[start : i + 1]
+                    return s[start: i + 1]
         return None
 
     def extract_fuel(config):
@@ -32,7 +32,7 @@ def process_configuration_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         return "-"
 
     # Extract fuel
-    df["fuel"] = df["configuration_name"].apply(extract_fuel)
+    df["energy_feedstock"] = df["configuration_name"].apply(extract_fuel)
 
     # Technology category logic
     ccs_keywords = ["MEA", "DEA", "-MEA", "-DEA", "CC"]
@@ -58,7 +58,8 @@ def process_configuration_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             keyword, case=False, na=False, regex=True
         )
         df.loc[
-            mask & ~df["technology_category"].str.contains("Electrification", na=False),
+            mask & ~df["technology_category"].str.contains(
+                "Electrification", na=False),
             "technology_category",
         ] += " Electrification"
 

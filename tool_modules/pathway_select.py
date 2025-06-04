@@ -37,7 +37,7 @@ def select_page():
             "selected",
             "configuration_name",
             "horizon",
-            "fuel",
+            "energy_feedstock",
             "technology_category",
             "hydrogen_source",
         ]
