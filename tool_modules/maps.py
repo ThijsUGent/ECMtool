@@ -18,6 +18,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import plotly.express as px
+import plotly.graph_objects as go
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -107,6 +108,7 @@ def map_per_pathway():
         unit = st.radio(
             "Select unit", ["GJ", "t"], horizontal=True
         )
+
         if unit == "GJ":
             with st.expander("Energy carriers"):
                 select_all_energy = st.toggle(
@@ -134,6 +136,7 @@ def map_per_pathway():
                 ]
 
         elif unit == "t":
+            st.markdown("""*Electricity is not considered with ton*""")
             with st.expander("Feedstock"):
                 select_all_feed = st.toggle(
                     "Select all", key="select_all_feed", value=True)
@@ -181,6 +184,7 @@ def map_per_pathway():
         map_choice = st.radio("Mapping view", ["cluster", "site"])
     with col2:
         pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
+        st.markdown("""*Click on cluster to see details*""")
 
         if map_choice == "cluster":
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
@@ -192,8 +196,20 @@ def map_per_pathway():
                 dict_gdf_clustered[pathway])
         df_selected = _clean_seleted_to_df(selected)
 
-        _tree_map(df_selected)
-        _site_within_cluster(df_selected, pathway, dict_gdf_clustered)
+        if df_selected is not None:
+            chart = st.radio("Select an option ", [
+                             "Sankey Diagram", "Treemap"])
+            df_filtered_cluster = _site_within_cluster(
+                df_selected, pathway, dict_gdf_clustered)
+            if chart == "Treemap":
+                _tree_map(df_selected)
+            elif chart == "Sankey Diagram":
+                _sankey(df_filtered_cluster, unit)
+            with st.expander("Show sites within the cluster"):
+                if df_filtered_cluster is not None:
+                    df_filtered_cluster_show = df_filtered_cluster[[
+                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+                    st.write(df_filtered_cluster_show)
 
 
 def _clean_seleted_to_df(selected):
@@ -214,10 +230,9 @@ def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
         df = dict_gdf_clustered[pathway]
         nbr_cluster = int(df_selected["cluster"])
         df_filtered_cluster = df[df["cluster"] == nbr_cluster]
-        with st.expander("Show sites within the cluster"):
-            df_filtered_cluster_show = df_filtered_cluster[[
-                "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
-            st.write(df_filtered_cluster_show)
+        return df_filtered_cluster
+    else:
+        return None
 
 
 def _energy_convert(value, unit, elec=False):
@@ -290,10 +305,77 @@ def _tree_map(df):
         )
 
         fig.update_layout(
-            title_text=f"Energy Use Breakdown<br><sub>Total energy: {total_energy} {unit_real}</sub>")
+            title_text=f"Energy Use Breakdown<br><sub>Total energy per annum: {total_energy} {unit_real}</sub>")
         fig.update_traces(marker_colors=df_long["color_value"].tolist())
 
         st.plotly_chart(fig)
+
+
+def _sankey(df, unit):
+    if df is not None:
+        energy_cols = [col for col in df.columns if any(
+            col.startswith(feed) for feed in type_ener_feed)]
+
+        carrier_labels = [col.replace(
+            '_[gj/t] ton', '').replace('_', ' ') for col in energy_cols]
+        sector_labels = df['aidres_sector_name'].unique().tolist()
+
+        labels = carrier_labels + sector_labels
+        label_indices = {label: i for i, label in enumerate(labels)}
+
+        sources, targets, values = [], [], []
+
+        for _, row in df.iterrows():
+            sector = row['aidres_sector_name']
+            for i, col in enumerate(energy_cols):
+                value = row[col]
+                if pd.notna(value) and value > 0:
+                    source_label = carrier_labels[i]
+                    sources.append(label_indices[source_label])
+                    targets.append(label_indices[sector])
+                    values.append(value)
+
+        link_colors = []
+        for s in sources:
+            carrier_label = labels[s]
+            link_colors.append(color_map.get(carrier_label, 'lightgray'))
+
+        node_colors = []
+
+        # assign colors per node, not per source link
+        for label in labels:
+            if label in color_map:
+                # carrier node color
+                node_colors.append(color_map[label])
+            else:
+                # sector node color
+                node_colors.append('lightgrey')
+        fig = go.Figure(data=[go.Sankey(
+            node=dict(
+                pad=15,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=labels,
+                color=node_colors,
+            ),
+            link=dict(
+                source=sources,
+                target=targets,
+                value=values,
+                color=link_colors
+            )
+        )])
+        total_energy = df["total_energy"].sum()
+        total_energy, unit_real = _energy_convert(total_energy, unit)
+
+        fig.update_layout(
+            title=dict(
+                text=f"Energy Carrier to Sector \n <sub> Total energy per annum: {total_energy:.2f} {unit_real}</sub>"
+            ),
+            font=dict(color='black', size=12)
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def _get_utilization_rates(sectors):
@@ -525,7 +607,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
     tooltip = {
         "html": """
         <b>Cluster:</b> {cluster} <br/>
-        <b>Total Energy:</b> {total_energy_rounded} {unit} <br/>
+        <b>Total Energy per annum:</b> {total_energy_rounded} {unit} <br/>
         {pie_html}
     """,
         "style": {
@@ -608,7 +690,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
 def _edit_clustering(choice):
     if choice == "DBSCAN":
-        min_samples = st.slider("Min samples", 1, 1, value=5)
+        min_samples = st.slider("Min samples", 1, 10, step=1, value=5)
         radius = st.slider("Distance", 1, 100, step=1, value=10)
         return min_samples, radius, None
 
