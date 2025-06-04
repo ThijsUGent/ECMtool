@@ -14,6 +14,7 @@ import pandas as pd
 from io import BytesIO
 import base64
 import os
+import math
 from sklearn.cluster import DBSCAN
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -157,7 +158,7 @@ def map_per_pathway():
                 ]
 
         elif unit == "t":
-            st.markdown("""*Electricity is not considered with ton*""")
+            st.markdown("""*Excluded electricity*""")
             with st.expander("Feedstock"):
                 select_all_feed = st.toggle(
                     "Select all", key="select_all_feed", value=True)
@@ -187,6 +188,7 @@ def map_per_pathway():
         st.markdown(""" *Default value 100 %* """)
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
+            st.write(sector_utilization)
         dict_gdf = {}
         for pathway in pathways_names:
             gdf_prod_x_perton = _get_gdf_prod_x_perton(
@@ -502,77 +504,65 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
 
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
-
+    # --- Data Preparation ---
     type_ener_feed = list(color_map.keys())
-    # Get energy columns
     energy_cols = [col for col in gdf.columns if "[" in col]
-    # Clean energy column names
-    # Create a mapping from old energy_cols to new names
-    new_names = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
+    rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
+    gdf = gdf.rename(columns=rename_map)
 
-    # Rename columns in gdf accordingly
-    gdf.rename(columns=new_names, inplace=True)
-    # Reconfirm updated column names
     energy_cols = [col for col in gdf.columns if any(
-        col.startswith(f"{feed.split('_')[0]}") for feed in type_ener_feed)]
+        col.startswith(feed.split("_")[0]) for feed in type_ener_feed)]
 
     if (gdf[energy_cols].sum(axis=1) == 0).all():
         return st.error("Select feedstock(s) or energy carrier(s)")
 
-    # Basic values
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf = gdf[gdf["total_energy"] > 0].copy()
     gdf["unit"] = unit
     gdf["total_energy_rounded"] = gdf["total_energy"].round().astype(int)
     gdf["lon"] = gdf.geometry.x
     gdf["lat"] = gdf.geometry.y
-
     gdf["radius"] = _get_radius(gdf)
 
-    # SVG pie chart generator
+    # --- Pie Chart SVG as Icon ---
     def generate_pie_svg_base64(row):
         values = row[energy_cols]
-        filtered = [(col, val)
+        segments = [(col, val)
                     for col, val in zip(energy_cols, values) if val > 0]
-        if not filtered:
+        if not segments:
             return ""
 
-        total = sum(val for _, val in filtered)
+        total = sum(val for _, val in segments)
         start_angle = 0
-
-        def polar_to_cartesian(cx, cy, r, angle_deg):
-            import math
-            angle_rad = math.radians(angle_deg)
-            return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
-
         cx, cy, r = 50, 50, 50
-
         paths = []
 
-        for col, val in filtered:
+        for col, val in segments:
             pct = val / total
             end_angle = start_angle + pct * 360
-            start_x, start_y = polar_to_cartesian(cx, cy, r, start_angle)
-            end_x, end_y = polar_to_cartesian(cx, cy, r, end_angle)
+            x1, y1 = polar_to_cartesian(cx, cy, r, start_angle)
+            x2, y2 = polar_to_cartesian(cx, cy, r, end_angle)
+            large_arc_flag = 1 if end_angle - start_angle > 180 else 0
+            colour = color_map.get(col, "#000000")
 
-            large_arc_flag = 1 if (end_angle - start_angle) > 180 else 0
-            color = color_map.get(col, "#000000")
-
-            path_d = f"M {cx},{cy} L {start_x},{start_y} A {r},{r} 0 {large_arc_flag} 1 {end_x},{end_y} Z"
-            paths.append(f'<path d="{path_d}" fill="{color}" />')
-
+            d = f"M {cx},{cy} L {x1},{y1} A {r},{r} 0 {large_arc_flag} 1 {x2},{y2} Z"
+            paths.append(f'<path d="{d}" fill="{colour}" />')
             start_angle = end_angle
 
         svg = f'<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">{"".join(paths)}</svg>'
-        svg_bytes = svg.encode("utf-8")
-        b64 = base64.b64encode(svg_bytes).decode("utf-8")
+        b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
         return f"data:image/svg+xml;base64,{b64}"
-    # Apply pie icon
+
+    def polar_to_cartesian(cx, cy, r, angle_deg):
+        angle_rad = math.radians(angle_deg)
+        return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
 
     gdf["icon_url"] = gdf.apply(generate_pie_svg_base64, axis=1)
-    # Build icon data
+
+    # --- Icon Layer ---
     icon_data = gdf[["lon", "lat", "icon_url", "total_energy",
-                    "total_energy_rounded", "unit", "radius"]].copy()
+                     "total_energy_rounded", "unit", "radius"]].copy()
+
     icon_data["icon"] = icon_data.apply(lambda row: {
         "url": row["icon_url"],
         "width": 100,
@@ -582,34 +572,34 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     icon_layer = pdk.Layer(
         "IconLayer",
+        id='pie_chart',
         data=icon_data,
         get_icon="icon",
-        get_size="radius",    # smaller size
+        get_size="radius",
         size_scale=0.002,
         get_position=["lon", "lat"],
-        pickable=False,
+        pickable=False
     )
 
-    def pie_chart_conic_gradient(row):
+    # --- Pie Tooltip HTML ---
+    def generate_pie_legend(row):
         values = row[energy_cols]
-        filtered = [(col, val)
+        segments = [(col, val)
                     for col, val in zip(energy_cols, values) if val > 0]
-        if not filtered:
+        if not segments:
             return ""
 
-        total = sum(val for _, val in filtered)
+        total = sum(val for _, val in segments)
+        gradient_parts = []
+        legend_rows = []
         start = 0
-        parts = []
-        legend_items = []
 
-        for col, val in filtered:
+        for col, val in segments:
             pct = val / total * 100
             end = start + pct
             colour = color_map.get(col, "#000000")
-            parts.append(f"{colour} {start:.1f}% {end:.1f}%")
-
-            # Legend row
-            legend_items.append(f"""
+            gradient_parts.append(f"{colour} {start:.1f}% {end:.1f}%")
+            legend_rows.append(f"""
                 <div style="display: flex; align-items: center; margin-bottom: 2px;">
                     <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
                     <span style="font-size: 11px; color: white;">{col}</span>
@@ -617,27 +607,17 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
             """)
             start = end
 
-        gradient_str = ", ".join(parts)
-        legend_html = "".join(legend_items)
-
+        legend_html = "".join(legend_rows)
         return f"""
         <div style="display: flex; flex-direction: row; gap: 10px; align-items: flex-start;">
-            <div style="
-                width: 80px;
-                height: 80px;
-                border-radius: 50%;
-                flex-shrink: 0;
-            "></div>z
-            <div style="display: flex; flex-direction: column;">
-                {legend_html}
-            </div>
+            <div style="width: 80px; height: 80px; border-radius: 50%; flex-shrink: 0;"></div>
+            <div style="display: flex; flex-direction: column;">{legend_html}</div>
         </div>
         """
 
-    # Apply radius and pie HTML
-    gdf["pie_html"] = gdf.apply(pie_chart_conic_gradient, axis=1)
+    gdf["pie_html"] = gdf.apply(generate_pie_legend, axis=1)
 
-    # Main layer
+    # --- Point Layer (Selectable) ---
     point_layer = pdk.Layer(
         "ScatterplotLayer",
         data=gdf,
@@ -646,30 +626,28 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         get_radius=5000,
         pickable=True,
         auto_highlight=False,
-        pitch=0,
-        opacity=0  # 20% visible, 80% transparent
+        opacity=0.001
     )
 
+    # --- Deck Setup ---
     view_state = pdk.ViewState(
         latitude=gdf["lat"].mean(),
         longitude=gdf["lon"].mean(),
         zoom=5,
-        pitch=0,
+        pitch=0.1
     )
 
-    # Tooltip
     tooltip = {
-        "html": "<b>Total energy:</b> {pie_html} {unit}",
+        "html": "<b>Total energy:</b> {total_energy_rounded} {unit} <b> {pie_html}",
         "style": {
             "backgroundColor": "rgba(0,0,0,0.7)",
             "color": "white",
             "fontSize": "12px",
             "padding": "10px",
-            "borderRadius": "5px",
+            "borderRadius": "5px"
         }
     }
 
-    # Deck instance
     deck = pdk.Deck(
         layers=[icon_layer, point_layer],
         initial_view_state=view_state,
@@ -677,9 +655,8 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         map_style=None
     )
 
-    # Show map
-    event = st.pydeck_chart(deck, on_select="rerun",
-                            selection_mode="single-object")
+    event = st.pydeck_chart(
+        deck, selection_mode="single-object",  on_select="rerun",)
     return event.selection
 
 
