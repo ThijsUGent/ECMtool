@@ -219,8 +219,8 @@ def map_per_pathway():
         df_selected = _clean_seleted_to_df(selected)
 
         if df_selected is not None:
-            chart = st.radio("Select an option ", [
-                             "Sankey Diagram", "Treemap"])
+            chart = st.radio("Select an option ", ["Treemap",
+                             "Sankey Diagram"])
             df_filtered_cluster = _site_within_cluster(
                 df_selected, pathway, dict_gdf_clustered)
             if chart == "Treemap":
