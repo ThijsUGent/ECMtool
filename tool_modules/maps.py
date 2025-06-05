@@ -309,7 +309,10 @@ def _tree_map(df):
 
         # Extract the single row of interest
         row = df.iloc[0]
-
+        if columns_plot == ["electricity"]:
+            elec = True
+        else:
+            elec = False
         # Prepare long-form dataframe for plotting
         df_long = pd.DataFrame({
             "energy_source": columns_plot,
@@ -326,7 +329,7 @@ def _tree_map(df):
         # Total energy calculation and conversion
         total_energy = df_long["value"].sum()
         unit = df_long["unit"].iloc[0]
-        total_energy, unit_real = _energy_convert(total_energy, unit)
+        total_energy, unit_real = _energy_convert(total_energy, unit, elec)
 
         # Create treemap
         fig = px.treemap(
@@ -525,6 +528,10 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     if (gdf[energy_cols].sum(axis=1) == 0).all():
         return st.error("Select feedstock(s) or energy carrier(s)")
+    if energy_cols == ["electricity"]:
+        elec = True
+    else:
+        elec = False
 
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf = gdf[gdf["total_energy"] > 0].copy()
@@ -547,17 +554,27 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         cx, cy, r = 50, 50, 50
         paths = []
 
-        for col, val in segments:
-            pct = val / total
-            end_angle = start_angle + pct * 360
-            x1, y1 = polar_to_cartesian(cx, cy, r, start_angle)
-            x2, y2 = polar_to_cartesian(cx, cy, r, end_angle)
-            large_arc_flag = 1 if end_angle - start_angle > 180 else 0
+        if len(segments) == 1:
+            # Draw full circle
+            col, _ = segments[0]
             colour = color_map.get(col, "#000000")
+            paths.append(
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{colour}" />')
+        else:
+            total = sum(val for _, val in segments)
+            start_angle = 0
 
-            d = f"M {cx},{cy} L {x1},{y1} A {r},{r} 0 {large_arc_flag} 1 {x2},{y2} Z"
-            paths.append(f'<path d="{d}" fill="{colour}" />')
-            start_angle = end_angle
+            for col, val in segments:
+                pct = val / total
+                end_angle = start_angle + pct * 360
+                x1, y1 = polar_to_cartesian(cx, cy, r, start_angle)
+                x2, y2 = polar_to_cartesian(cx, cy, r, end_angle)
+                large_arc_flag = 1 if end_angle - start_angle > 180 else 0
+                colour = color_map.get(col, "#000000")
+
+                d = f"M {cx},{cy} L {x1},{y1} A {r},{r} 0 {large_arc_flag} 1 {x2},{y2} Z"
+                paths.append(f'<path d="{d}" fill="{colour}" />')
+                start_angle = end_angle
 
         svg = f'<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">{"".join(paths)}</svg>'
         b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
@@ -629,7 +646,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     def build_total_html(row):
         total_formatted, unit_formatted = _energy_convert(
-            row['total_energy_rounded'], row['unit'])
+            row['total_energy_rounded'], row['unit'], elec)
         return f"{total_formatted} {unit_formatted}"
 
     # Apply the function to your GeoDataFrame
