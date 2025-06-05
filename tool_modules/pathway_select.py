@@ -73,35 +73,43 @@ def select_page():
                                                                       ["route_weight"] != 0]
         with col2:
             st.text("Save the pathway")
+
             # --- PATHWAY NAMING AND SAVING ---
             pathway_name = st.text_input(
-                "Enter a name for your pathway", value=pathway_name
-            )
+                "Enter a name for your pathway", value=pathway_name)
+
             if dict_routes_selected:
 
                 if "Pathway name" not in st.session_state:
                     st.session_state["Pathway name"] = {}
 
+                # Save button
                 if st.button("Save pathway"):
                     if pathway_name.strip() == "":
-                        st.warning("Please enter a name for the pathway")
+                        st.warning("Please enter a name for the pathway.")
                     elif pathway_name in st.session_state["Pathway name"]:
                         st.warning(
                             f"A pathway named '{pathway_name}' already exists.")
                     else:
                         st.session_state["Pathway name"][pathway_name] = dict_routes_selected
-                        st.success(f"Pathway '{pathway_name}' created.")
-                        st.text("Download pathway configuration in txt format:")
+                        st.success(f"Pathway '{pathway_name}' saved.")
+
+                # Download button (triggers logic only when clicked)
+                if st.button("Download pathway"):
+                    if pathway_name.strip() == "":
+                        st.warning("Please enter a name for the pathway.")
+                    else:
                         combined_df = pd.concat(
                             dict_routes_selected.values(), ignore_index=True)
-                        exported_txt = export_to_txt(
-                            combined_df, pathway_name)
-                        # Offer as download
+                        exported_txt = export_to_txt(combined_df, pathway_name)
+
                         st.download_button(
-                            label="Download Pathway File",
+                            label="Click here to download",
                             data=exported_txt,
                             file_name=f"ECM_Tool_{pathway_name}.txt",
-                            mime="text/plain"
+                            mime="text/plain",
+                            type="tertiary"
                         )
+
             else:
-                st.text("Please upload or create a pathway to save")
+                st.text("Please upload or create a pathway before saving.")
