@@ -1,11 +1,4 @@
 import streamlit as st
-from tool_modules.eu_mix_preconfiguration import *
-from tool_modules.categorisation import *
-from tool_modules.pathway_select import *
-from tool_modules.pathway_view import *
-from tool_modules.pathway_perton import *
-from tool_modules.import_export_file import *
-from tool_modules.maps import *
 
 
 def welcome():

@@ -6,6 +6,8 @@ from tool_modules.pathway_view import *
 from tool_modules.pathway_perton import *
 from tool_modules.import_export_file import *
 from tool_modules.maps import *
+from tool_modules.cluster_results import *
+from tool_modules.cluster_configuration import *
 
 
 from pages_scripts.menu_pages import *
@@ -83,17 +85,17 @@ def main():
         )
         if maps_subsection == "Map per pathway":
             map_per_pathway()
-        elif maps_subsection == "Map per utilisation rate":
-            map_per_utlisation_rate()
+        # elif maps_subsection == "Map per utilisation rate":
+        #     map_per_utlisation_rate()
 
     elif main_section == "Cluster - microscale":
         cluster_subsection = st.sidebar.radio(
-            "Select a page", ["Cluster viewer", "Cluster analysis"], key="cluster_sub"
+            "Select a page", ["Cluster configuration", "Cluster results"], key="cluster_sub"
         )
-        if cluster_subsection == "Cluster viewer":
-            st.text("Cluster viewer page under construction")
-        elif cluster_subsection == "Cluster analysis":
-            st.text("Cluster analysis page under construction")
+        if cluster_subsection == "Cluster configuration":
+            cluster_configuration()
+        elif cluster_subsection == "Cluster results":
+            cluster_results()
 
 
 if __name__ == "__main__":
