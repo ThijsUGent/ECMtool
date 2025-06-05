@@ -349,6 +349,9 @@ def _diplay_chart_per_pathway(
         df_combined["type"], categories=sorted(df_combined["type"].unique()), ordered=True
     )
 
+    # Sort by type to control stacking order
+    df_combined = df_combined.sort_values("type")
+
     # Filter color map (keys are still the full type, so legend colors may not match exactly)
     color_map_combined = {
         k: v for k, v in color_map.items() if k in df_combined["type"].unique()}
