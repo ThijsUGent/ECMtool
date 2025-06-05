@@ -241,7 +241,12 @@ def map_per_pathway():
             with st.expander("Show sites within the cluster"):
                 if df_filtered_cluster is not None:
                     df_filtered_cluster_show = df_filtered_cluster[[
-                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+                        "site_name", "aidres_sector_name", "production_route_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+                    df_filtered_cluster_show.columns = [
+                        col.replace('_', ' ').replace(
+                            'utilization rate', 'utilisation rate')
+                        for col in df_filtered_cluster_show.columns
+                    ]
                     st.write(df_filtered_cluster_show)
 
 
@@ -280,8 +285,13 @@ def _energy_convert(value, unit, elec=False):
     Returns:
         (rounded_value, new_unit)
     """
-    if unit != "GJ":
-        return round(value), unit
+    if unit == "t":
+        if value >= 1_000_000:
+            return round(value / 1_000_000, 2), "Mt"
+        elif value >= 1_000:
+            return round(value / 1_000, 2), "kt"
+        else:
+            return round(value, 2), "t"
 
     if elec:
         # 1 GJ = 0.277778 MWh
@@ -452,15 +462,37 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
                                 "utilization_rate"] = utilization_rate
 
     # Condition : prod_rate if prod_cap extist, but not prod_rate
-    prod_rate_cap_utli_condi = gdf_production_site["utilization_rate"] / \
+    prod_rate_cap_utli_condi_1 = gdf_production_site["utilization_rate"] / \
         100 * gdf_production_site["prod_cap"]
 
-    condition = (gdf_production_site["prod_rate"].isna() &
-                 gdf_production_site["prod_cap"].notna() &
-                 gdf_production_site["utilization_rate"].notna())
+    condition_1 = (gdf_production_site["prod_rate"].isna() &
+                   gdf_production_site["prod_cap"].notna() &
+                   gdf_production_site["utilization_rate"].notna())
 
     gdf_production_site["prod_rate"] = np.where(
-        condition, prod_rate_cap_utli_condi, gdf_production_site["prod_rate"])
+        condition_1, prod_rate_cap_utli_condi_1, gdf_production_site["prod_rate"])
+
+    # Condition : prod_rate if prod_rate exist but not prod_cap
+    prod_rate_cap_utli_condi_2 = gdf_production_site["utilization_rate"] / \
+        100 * gdf_production_site["prod_rate"]
+
+    condition_2 = (gdf_production_site["prod_rate"].notna() &
+                   gdf_production_site["prod_cap"].isna() &
+                   gdf_production_site["utilization_rate"].notna())
+
+    gdf_production_site["prod_rate"] = np.where(
+        condition_2, prod_rate_cap_utli_condi_2, gdf_production_site["prod_rate"])
+
+    # Condition : prod_rate if prod_rate exist and prod_cap
+    prod_rate_cap_utli_condi_3 = gdf_production_site["utilization_rate"] / \
+        100 * gdf_production_site["prod_cap"]
+
+    condition_3 = (gdf_production_site["prod_rate"].isna() &
+                   gdf_production_site["prod_cap"].isna() &
+                   gdf_production_site["utilization_rate"].notna())
+
+    gdf_production_site["prod_rate"] = np.where(
+        condition_3, prod_rate_cap_utli_condi_3, gdf_production_site["prod_rate"])
 
     # Multiply per ton with matching product
     sectors_products = list(perton.keys())
