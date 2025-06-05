@@ -118,30 +118,25 @@ color_map = {
     "electricity_[mwh/t]": "#fff7bc",  # yellow pastel
     "electricity_[gj/t]": "#ffeda0",   # yellow pastel
     "alternative_fuel_mixture_[gj/t]": "#fdd49e",  # light orange
-    "alternative_fuel_mixture_[t/t]": "#d7301f",   # dark red
     "biomass_[gj/t]": "#c7e9c0",       # light green
-    "biomass_[t/t]": "#238b45",        # dark green
     "biomass_waste_[gj/t]": "#a1d99b",  # green pastel
-    "biomass_waste_[t/t]": "#006d2c",  # deep green
     "coal_[gj/t]": "#cccccc",          # light grey
-    "coal_[t/t]": "#000000",           # black
     "coke_[gj/t]": "#bdbdbd",          # grey
-    "coke_[t/t]": "#636363",           # dark grey
     "crude_oil_[gj/t]": "#fdae6b",     # orange pastel
-    "crude_oil_[t/t]": "#e6550d",      # burnt orange
     "hydrogen_[gj/t]": "#b7d7f4",      # light blue
-    "hydrogen_[t/t]": "#3484d4",       # deep blue
     "methanol_[gj/t]": "#fdd0a2",      # soft orange
-    "methanol_[t/t]": "#d94801",       # dark orange
     "ammonia_[gj/t]": "#d9f0a3",       # lime pastel
-    "ammonia_[t/t]": "#78c679",        # dark lime
     "naphtha_[gj/t]": "#fcbba1",       # peach
-    "naphtha_[t/t]": "#cb181d",        # dark red
     "natural_gas_[gj/t]": "#89a0d0",   # light blue
-    "natural_gas_[t/t]": "#074c88",    # medium blue
     "plastic_mix_[gj/t]": "#e5e5e5",   # very light grey
-    "plastic_mix_[t/t]": "#737373"     # medium grey
+
 }
+
+# Extend with cleaned keys (underscore removed, suffix dropped, and underscore replaced with space)
+color_map.update({
+    " ".join(key.split("_")[:-1]): value
+    for key, value in color_map.items()
+})
 
 
 def perton_page():
