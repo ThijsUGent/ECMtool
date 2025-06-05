@@ -12,6 +12,7 @@ import streamlit as st
 import pydeck as pdk
 import pandas as pd
 from io import BytesIO
+import io
 import base64
 import os
 import math
@@ -20,6 +21,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import plotly.express as px
 import plotly.graph_objects as go
+from PIL import Image, ImageDraw
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -730,36 +732,113 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
 
 def _mapping_chart_per_ener_feed_sites(gdf):
+
+    type_ener_feed = list(color_map.keys())
+    energy_cols = [col for col in gdf.columns if "[" in col]
+    rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
+    gdf = gdf.rename(columns=rename_map)
+
+    energy_cols = [col for col in gdf.columns if any(
+        col.startswith(feed.split("_")[0]) for feed in type_ener_feed)]
+
+    if (gdf[energy_cols].sum(axis=1) == 0).all():
+        return st.warning("Select feedstock(s) or energy carrier(s)")
+    if energy_cols == ["electricity"]:
+        elec = True
+    else:
+        elec = False
+
     # Extract latitude and longitude
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
+    # Prepare gdf
+    gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
+    gdf["radius"] = _get_radius(gdf)
 
-    unique_clusters = gdf["cluster"].unique()
-    cmap = plt.get_cmap("tab20", len(unique_clusters))
+    unique_clusters = sorted(gdf["cluster"].unique())
+    n_clusters = len(unique_clusters)
+
+    # Define your base colours (looped every N)
+    base_cmap = plt.get_cmap("tab20")
+    max_colors = base_cmap.N  # = 20 for tab20
+
+    # Get unique clusters and sort
+    unique_clusters = sorted(gdf["cluster"].unique())
+
+    # Build RGB list from tab20 (or custom)
+    base_colors_rgb = [
+        [int(255 * c) for c in base_cmap(i)[:3]]
+        for i in range(max_colors)
+    ]
+
+    # Map clusters cyclically
     cluster_color_map = {}
-    for i, cluster in enumerate(unique_clusters):
+    for idx, cluster in enumerate(unique_clusters):
         if cluster == -1:
-            cluster_color_map[cluster] = [0, 0, 0]  # black
+            cluster_color_map[cluster] = [0, 0, 0]  # black for noise
         else:
-            rgb = [int(255 * c) for c in cmap(i % cmap.N)[:3]]
-            cluster_color_map[cluster] = rgb
+            color_idx = idx % max_colors
+            cluster_color_map[cluster] = base_colors_rgb[color_idx]
 
+    # Assign to gdf
     gdf["color"] = gdf["cluster"].map(cluster_color_map)
-    colormap = "color"
 
-    # Create the PyDeck layer
-    point_layer = pdk.Layer(
-        "ScatterplotLayer",
+    def generate_base64_icon_from_color_pil(rgb, size=128):
+        """
+        Generate a colored circle icon as base64 PNG from an RGB list using PIL.
+        Much faster than matplotlib.
+        """
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))  # transparent bg
+        draw = ImageDraw.Draw(img)
+        # Draw filled circle
+        draw.ellipse([(0, 0), (size - 1, size - 1)], fill=tuple(rgb) + (255,))
+
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+
+    # Assign to gdf
+    gdf["color"] = gdf["cluster"].map(cluster_color_map)
+
+    # Generate icons fast with PIL
+    gdf["icon_base64"] = gdf["color"].apply(
+        generate_base64_icon_from_color_pil)
+
+    # Build PyDeck icon data dict
+    gdf["icon_data"] = gdf["icon_base64"].apply(lambda b64: {
+        "url": f"data:image/png;base64,{b64}",
+        "width": 128,
+        "height": 128,
+        "anchorY": 128,
+    })
+
+    # # Pydeck layer with get_fill_color from the "color" column
+    # point_layer = pdk.Layer(
+    #     "ScatterplotLayer",
+    #     data=gdf,
+    #     id="sites",
+    #     get_position='[lon, lat]',
+    #     get_radius=0.4e4,
+    #     pickable=True,
+    #     get_fill_color="color",
+    #     auto_highlight=True,
+    #     opacity=0.8,
+    #     stroked=True,
+    #     get_line_color=[0, 0, 0],
+    #     line_width_min_pixels=1,
+    #     radius_scale=10,
+    # )
+
+    icon_layer = pdk.Layer(
+        "IconLayer",
         data=gdf,
-        id="sites",
+        get_icon="icon_data",
         get_position='[lon, lat]',
-        get_radius=0.4e4,
-        pickable=True,
-        get_fill_color=colormap,
-        pitch=0,
+        get_size="radius",
+        size_scale=0.0007,  # base size, will scale with sizeScale
+        pickable=False
     )
 
-    # Set the initial view state
     view_state = pdk.ViewState(
         latitude=gdf['lat'].mean(),
         longitude=gdf['lon'].mean(),
@@ -767,13 +846,13 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         pitch=0,
     )
 
-    # Render the interactive map with tooltips and capture selected data
     chart = pdk.Deck(
-        layers=[point_layer],
+        layers=[icon_layer],
         initial_view_state=view_state,
         tooltip={"text": "Cluster: {cluster} \n Site Name: {site_name}"},
-        map_style=None,
+        map_style="light",
     )
+
     event = st.pydeck_chart(chart, on_select="rerun",
                             selection_mode="single-object")
 

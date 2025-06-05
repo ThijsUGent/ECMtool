@@ -71,6 +71,8 @@ def select_page():
             for key in dict_routes_selected.keys():
                 dict_routes_selected[key] = dict_routes_selected[key][dict_routes_selected[key]
                                                                       ["route_weight"] != 0]
+        st.markdown(
+            "**Don't forget to save the pathway before proceeding.**")
         with col2:
             st.text("Save the pathway")
 
