@@ -224,8 +224,8 @@ def perton_page():
                 ]
                 unit = "t/t"
 
-        type_of_perton = st.radio("Select which specific energy to show", [
-            "Per route", "Weighted by sector"])
+        type_of_perton = st.radio("Select which specific energy to show", ["Weighted by sector",
+                                                                           "Per route"])
 
         if type_of_perton == "Per route":
             sector_selected = st.pills(
