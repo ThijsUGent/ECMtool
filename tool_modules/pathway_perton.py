@@ -305,6 +305,9 @@ def _diplay_chart_per_pathway(
 
     columns = selected_ener_feed
 
+    # sort columns alphabetically
+    columns = sorted(columns)
+
     df_pathway_weighted = []
 
     for sec in sector:
