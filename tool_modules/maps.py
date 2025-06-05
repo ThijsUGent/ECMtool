@@ -719,7 +719,7 @@ def _edit_clustering(choice):
         return min_samples, radius, None
 
     if choice == "KMEANS":
-        n_cluster = st.slider("Number of clusters", 10, 200, step=1, value=100)
+        n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
         return None, None, n_cluster
 
 
