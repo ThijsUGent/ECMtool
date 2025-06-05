@@ -121,11 +121,11 @@ def preconfigure_path(df, columns_to_show_selection):
                         total_weight = edited_selected_df_product["route_weight"].sum(
                         )
 
-                        if 99.99 <= total_weight <= 100.01 or total_weight == 0:
+                        if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                             # Store result in final selection dictionary
                             dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                         else:
-                            st.error(
+                            st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     else:
         for sector in unique_sectors:
@@ -151,11 +151,11 @@ def preconfigure_path(df, columns_to_show_selection):
 
                 total_weight = df_product["route_weight"].sum(
                 )
-                if 99.99 <= total_weight <= 100.01 or total_weight == 0:
+                if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                     # Store result in final selection dictionary
                     dict_routes_selected[f"{sector}_{product}"] = df_product
                 else:
-                    st.error(
+                    st.warning(
                         f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     # Check if modified or not
     if modified:
@@ -246,11 +246,11 @@ def create_path(df, columns_to_show_selection):
                         )
                         total_weight = edited_selected_df_product["route_weight"].sum(
                         )
-                        if 99.99 <= total_weight <= 100.01 or total_weight == 0:
+                        if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                             # Store result in final selection dictionary
                             dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                         else:
-                            st.error(
+                            st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     all_empty = all(df.empty for df in dict_routes_selected.values())
 
@@ -376,11 +376,11 @@ def upload_path(df, columns_to_show_selection):
 
                                 total_weight = edited_selected_df_product["route_weight"].sum(
                                 )
-                                if 99.99 <= total_weight <= 100.01 or total_weight == 0:
+                                if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                                     # Store result in final selection dictionary
                                     dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                                 else:
-                                    st.error(
+                                    st.warning(
                                         f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
             else:
                 for sector in unique_sectors:
@@ -406,11 +406,11 @@ def upload_path(df, columns_to_show_selection):
 
                         total_weight = df_product["route_weight"].sum(
                         )
-                        if 99.99 <= total_weight <= 100.01 or total_weight == 0:
+                        if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                             # Store result in final selection dictionary
                             dict_routes_selected[f"{sector}_{product}"] = df_product
                         else:
-                            st.error(
+                            st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     # Check if modified or not
     if modified is True:

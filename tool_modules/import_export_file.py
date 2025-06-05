@@ -49,7 +49,7 @@ def import_to_dict(uploaded_file):
     if header_line.lower().startswith("pathway file :"):
         pathway_name = header_line.split(":", 1)[1].strip()
     else:
-        st.error(
+        st.warning(
             "Header line is not in the expected format: 'Pathway file : <title>'")
         return {}, None
     # Parse JSON from the remaining lines

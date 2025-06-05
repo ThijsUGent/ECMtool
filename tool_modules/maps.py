@@ -527,7 +527,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         col.startswith(feed.split("_")[0]) for feed in type_ener_feed)]
 
     if (gdf[energy_cols].sum(axis=1) == 0).all():
-        return st.error("Select feedstock(s) or energy carrier(s)")
+        return st.warning("Select feedstock(s) or energy carrier(s)")
     if energy_cols == ["electricity"]:
         elec = True
     else:
