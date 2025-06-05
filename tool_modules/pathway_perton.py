@@ -305,6 +305,9 @@ def _diplay_chart_per_pathway(
 
     columns = selected_ener_feed
 
+    # sort columns alphabetically
+    columns = sorted(columns)
+
     df_pathway_weighted = []
 
     for sec in sector:
@@ -342,12 +345,16 @@ def _diplay_chart_per_pathway(
     df_combined["type"] = df_combined["type"].apply(
         lambda x: x.split("[")[0].replace("_", " ").strip())
 
-    df_combined["type"] = pd.Categorical(
-        df_combined["type"], categories=sorted(df_combined["type"].unique()), ordered=True
+    # Ensure y-axis (product_name) is sorted alphabetically
+    product_order = sorted(df_combined["product_name"].unique())
+    df_combined["product_name"] = pd.Categorical(
+        df_combined["product_name"], categories=product_order, ordered=True
     )
 
-    # Sort by type to control stacking order
-    df_combined = df_combined.sort_values("type")
+    # Filter color map (keys are still the full type, so legend colors may not match exactly)
+    color_map_combined = {
+        k: v for k, v in color_map.items() if k in df_combined["type"].unique()
+    }
 
     # Filter color map (keys are still the full type, so legend colors may not match exactly)
     color_map_combined = {
