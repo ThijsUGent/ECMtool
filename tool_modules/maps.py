@@ -158,7 +158,7 @@ def map_per_pathway():
                 ]
 
         elif unit == "t":
-            st.markdown("""*Excluded electricity*""")
+            st.markdown("""*Electricity excluded*""")
             with st.expander("Feedstock"):
                 select_all_feed = st.toggle(
                     "Select all", key="select_all_feed", value=True)
