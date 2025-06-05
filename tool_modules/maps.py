@@ -188,7 +188,6 @@ def map_per_pathway():
         st.markdown(""" *Default value 100 %* """)
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
-            st.write(sector_utilization)
         dict_gdf = {}
         for pathway in pathways_names:
             gdf_prod_x_perton = _get_gdf_prod_x_perton(
