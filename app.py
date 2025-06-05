@@ -69,14 +69,15 @@ def main():
     if main_section == "Pathway":
         pathway_subsection = st.sidebar.radio(
             "Select a page",
-            ["Pathway configuration", "Pathway visualisation", "Pathway perton"],
+            ["Pathway configuration", "Pathway visualisation",
+                "Production route consumption"],
             key="pathway_sub",
         )
         if pathway_subsection == "Pathway configuration":
             select_page()
         elif pathway_subsection == "Pathway visualisation":
             view_page()
-        elif pathway_subsection == "Pathway perton":
+        elif pathway_subsection == "Production route consumption":
             perton_page()
 
     elif main_section == "Maps - European scale":
