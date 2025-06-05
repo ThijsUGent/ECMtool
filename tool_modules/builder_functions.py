@@ -413,6 +413,6 @@ def upload_path(df, columns_to_show_selection):
                             st.error(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
     # Check if modified or not
-    if modified:
+    if modified is True:
         pathway_name += " modified"
     return dict_routes_selected, pathway_name
