@@ -203,12 +203,23 @@ def map_per_pathway():
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
         st.text('________')
-        map_choice = st.radio("Mapping view", ["cluster", "site"])
+        map_choice = st.radio("Mapping view", ["cluster centroid", "site"])
     with col2:
+
         pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
+
+        sectors_included = dict_gdf_clustered[pathway]["aidres_sector_name"].unique(
+        ).tolist()
+        sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
+                                              sectors_included, selection_mode="multi", default=sectors_included)
         st.markdown("""*Click on a cluster to see details*""")
 
-        if map_choice == "cluster":
+        # Selected sectors
+        dict_gdf_clustered[pathway].copy()
+        dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway][dict_gdf_clustered[pathway]
+                                                                  ["aidres_sector_name"].isin(sector_seleted)]
+
+        if map_choice == "cluster centroid":
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             selected = _mapping_chart_per_ener_feed_cluster(

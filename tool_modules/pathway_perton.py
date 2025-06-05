@@ -166,9 +166,9 @@ def perton_page():
 
     with col1:
         ener_or_feed = st.radio(
-            "Select unit", ["Energy per ton (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
+            "Select unit", ["Energy per tonne (GJ/t)", "Tonne per tonne (t/t)"], horizontal=True
         )
-        if ener_or_feed == "Energy per ton (GJ/t)":
+        if ener_or_feed == "Energy per tonne (GJ/t)":
             with st.expander("Energy carriers"):
                 select_all_energy = st.toggle(
                     "Select all", key="select_all_energy", value=True)
@@ -224,7 +224,7 @@ def perton_page():
                 ]
                 unit = "t/t"
 
-        type_of_perton = st.radio("Select which specific energy to show", ["Weighted by sector",
+        type_of_perton = st.radio("Select which specific energy to show", ["Weighted by product",
                                                                            "Per route"])
 
         if type_of_perton == "Per route":
@@ -241,7 +241,7 @@ def perton_page():
             if not selected_pathways:
                 st.warning("Please select at least 1 pathways.")
 
-        if type_of_perton == "Weighted by sector":
+        if type_of_perton == "Weighted by product":
             selected_pathways = st.pills(
                 "Select a pathway", pathway_names, selection_mode='multi', default=pathway_names[0])
             if len(selected_pathways) > 2:
@@ -252,11 +252,11 @@ def perton_page():
 
     with col2:
         if type_of_perton == "Per route":
-            st.subheader("Perton per route")
+            st.subheader("Energy consumption per route")
             _plot_per_route(selected_ener_feed,
                             selected_pathways, sector_selected, unit)
-        if type_of_perton == "Weighted by sector":
-            st.subheader("Perton by product")
+        if type_of_perton == "Weighted by product":
+            st.subheader("Energy consumption per product")
             st.subheader("")
             _plot_per_pathway(selected_ener_feed,
                               selected_pathways, sectors_list, unit)
@@ -355,7 +355,7 @@ def _diplay_chart_per_pathway(
     )
     df_combined = df_combined.sort_values("type")
 
-    # ✅ Sort product_name alphabetically for y-axis
+    # Sort product_name alphabetically for y-axis
     sorted_product_names = sorted(df_combined["product_name"].unique())
     df_combined["product_name"] = pd.Categorical(
         df_combined["product_name"],
