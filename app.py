@@ -47,7 +47,7 @@ def main():
         About()
 
     st.sidebar.text("________________________")
-    st.sidebar.subheader("PathMaker")
+    st.sidebar.subheader("Tool")
 
     # Static label above the radio
     st.sidebar.markdown("**Choose a section**")
@@ -81,7 +81,7 @@ def main():
 
     elif main_section == "Maps - European scale":
         maps_subsection = st.sidebar.radio(
-            "Select a page", ["Map per pathway", "Map per utilisation rate"], key="maps_sub"
+            "Select a page", ["Map per pathway"], key="maps_sub"
         )
         if maps_subsection == "Map per pathway":
             map_per_pathway()
