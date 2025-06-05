@@ -342,25 +342,34 @@ def _diplay_chart_per_pathway(
 
     df_combined["unit"] = unit
 
+    # Clean 'type'
     df_combined["type"] = df_combined["type"].apply(
-        lambda x: x.split("[")[0].replace("_", " ").strip())
-
-    # Ensure y-axis (product_name) is sorted alphabetically
-    product_order = sorted(df_combined["product_name"].unique())
-    df_combined["product_name"] = pd.Categorical(
-        df_combined["product_name"], categories=product_order, ordered=True
+        lambda x: x.split("[")[0].replace("_", " ").strip()
     )
 
-    # Filter color map (keys are still the full type, so legend colors may not match exactly)
+    # Sort type for legend/stacking order
+    df_combined["type"] = pd.Categorical(
+        df_combined["type"],
+        categories=sorted(df_combined["type"].unique()),
+        ordered=True
+    )
+    df_combined = df_combined.sort_values("type")
+
+    # ✅ Sort product_name alphabetically for y-axis
+    sorted_product_names = sorted(df_combined["product_name"].unique())
+    df_combined["product_name"] = pd.Categorical(
+        df_combined["product_name"],
+        categories=sorted_product_names,
+        ordered=True
+    )
+    df_combined = df_combined.sort_values("product_name")
+
+    # Filter colour map
     color_map_combined = {
         k: v for k, v in color_map.items() if k in df_combined["type"].unique()
     }
 
-    # Filter color map (keys are still the full type, so legend colors may not match exactly)
-    color_map_combined = {
-        k: v for k, v in color_map.items() if k in df_combined["type"].unique()}
-
-    # Plot combined
+    # Plot
     fig_combined = px.bar(
         df_combined,
         x="value",
@@ -369,8 +378,13 @@ def _diplay_chart_per_pathway(
         color_discrete_map=color_map_combined,
         orientation="h",
         title=f"{unit} for {pathway} per product",
-        labels={"value": f"{unit}",
-                "product_name": "product_name", "type": "Type"}
+        labels={"value": f"{unit}", "product_name": "Product", "type": "Type"}
+    )
+
+    # Force category order in layout (crucial!)
+    fig_combined.update_layout(
+        yaxis_categoryorder="array",
+        yaxis_categoryarray=sorted_product_names
     )
 
     st.plotly_chart(fig_combined, use_container_width=True,
