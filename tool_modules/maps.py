@@ -627,6 +627,14 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     gdf["pie_html"] = gdf.apply(generate_pie_legend, axis=1)
 
+    def build_total_html(row):
+        total_formatted, unit_formatted = _energy_convert(
+            row['total_energy_rounded'], row['unit'])
+        return f"{total_formatted} {unit_formatted}"
+
+    # Apply the function to your GeoDataFrame
+    gdf['total_html'] = gdf.apply(build_total_html, axis=1)
+
     # --- Point Layer (Selectable) ---
     point_layer = pdk.Layer(
         "ScatterplotLayer",
@@ -647,8 +655,10 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         pitch=0.1
     )
 
+    # First, define a function that will return the formatted HTML string per row
+
     tooltip = {
-        "html": "<b>Total energy:</b> {total_energy_rounded} {unit} <b> {pie_html}",
+        "html": "<b>Total energy:</b> {total_html} <b> {pie_html}",
         "style": {
             "backgroundColor": "rgba(0,0,0,0.7)",
             "color": "white",
