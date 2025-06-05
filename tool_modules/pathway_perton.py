@@ -345,6 +345,10 @@ def _diplay_chart_per_pathway(
     df_combined["type"] = df_combined["type"].apply(
         lambda x: x.split("[")[0].replace("_", " ").strip())
 
+    df_combined["type"] = pd.Categorical(
+        df_combined["type"], categories=sorted(df_combined["type"].unique()), ordered=True
+    )
+
     # Filter color map (keys are still the full type, so legend colors may not match exactly)
     color_map_combined = {
         k: v for k, v in color_map.items() if k in df_combined["type"].unique()}
