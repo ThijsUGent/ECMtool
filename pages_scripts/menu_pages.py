@@ -28,7 +28,7 @@ def Documentation():
 def ECM():
     st.header(
         "[ECM](https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm)")
-    st.markdown("""he Energy & Cluster Management group is matured from the synergy between environment and entrepreneurship, between study and implementation of industrial symbiosis, performed since 1998.
+    st.markdown("""The Energy & Cluster Management group is matured from the synergy between environment and entrepreneurship, between study and implementation of industrial symbiosis, performed since 1998.
 
  Research topics focus on concerted energy & resource management at business parks, on industrial sites or in cross-sectorial clusters. It concerns characteristic interdisciplinary research, combining engineering & modelling skills with economic analyses, spatial planning, policy settings and social responsibility.
 
