@@ -1,22 +1,13 @@
-# explanation of the tool
-Main purpose is to increase the accessibility to the data from the AIDRES project. 
-In addition to the mix routes, many more cluster configurations can be generated.
-user interface to manipulate the data and create new configurations
+# Description of the tool 
+The tool starts from the AIDRES project, creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro-level, and assess future demand of multiple energy vectors.
 
-Linked to industry database to retrieve capacity, with DBSCAN pre-processing
-or just to manually create a cluster (user-defined capacities)
-define utilisation rates (also editable by users)
 
-# additional features to the tool
-nice visualisations 
-timing of investments can be altered by users
-KPIs for each cluster: climate neutrality target reached? aggregated flexilibility, other trackers?
-
+# Next features to the tool
+Cluster configuration feature 
 
 # Background information on the AIDRES project
+cf website
 
-# Data management of the tool
-include flowchart that shows how the tool functions, data inputs and outputs, show references and data sources
 
 # Terminology used
 sector: AIDRES includes six sectors; chemicals, cement, steel, refinery, fertilisers, glass
@@ -24,7 +15,6 @@ product: specific activity of that sector (again AIDRES scope defined)
 production route: refers to the selected production process for that activity in a sector
 cluster configuration: a user-defined configuration that defines for each included sector and product, the composition of production routes. if just one, simple, if multiple weights need to be defined by the user
 
-# 
 
 
 # ECM
@@ -35,40 +25,16 @@ ECM UGent EnSy
 AIDRES tool within AIDRES_tool folder
 reference to linked projects (AIDRES, PIECE TRILATE, etc)
 
-# How to install ?
-
-From VSCode, create a new python environment .venv, install requirments.txt (from terminal, activate environment, and run pip -r requirements.txt) 
-
-# up for discussion
-- fuel versus feedstock, where needed more nuance
-- labels for the production routes, good reasoning behind it that will guide users when they configure clusters
-to think about for future research
-- what will the tool be used for, are the cluster configurations a cause or consequence
-
-# Tasks
-
-# To do 
-
-- Define category
-
-- Make a tool to select scenario from the category for each product
-
-- Make a function to create a map 
-
-- Make a function to create a tree map
-
-- Make a function to create a flow diagram 
-
-- Cluster customisation 
-
-- To complete...
 
 
-## Thijs
+
+## Thijs Duvillard
+Code 
 
 ---
 
 ## Nienke 
+Conceptualisation
 
 ---
 
