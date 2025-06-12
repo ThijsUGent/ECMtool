@@ -215,7 +215,7 @@ def map_per_pathway():
         ).tolist()
         sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
                                               sectors_included, selection_mode="multi", default=sectors_included)
-        st.markdown("""*Click on a cluster to see details*""")
+        st.markdown("""*Click on a cluster to see details **below the map***""")
 
         # Selected sectors
         dict_gdf_clustered[pathway].copy()
@@ -241,7 +241,9 @@ def map_per_pathway():
                 _tree_map(df_selected)
             elif chart == "Sankey Diagram":
                 _sankey(df_filtered_cluster, unit)
-            with st.expander("Show sites within the cluster"):
+            with st.expander("Show  or download sites within the cluster"):
+                st.text(
+                    "It is possible to download the cluster configuration to use it in the cluster tool")
                 if df_filtered_cluster is not None:
                     df_filtered_cluster_show = df_filtered_cluster[[
                         "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
@@ -256,7 +258,7 @@ def map_per_pathway():
                         "site", "sector", "product", "production capacity (kt)"]]
                     cluster = st.text_input("Enter a name for the cluster",)
                     st.download_button(
-                        label="Download cluster to use in cluster - micro scale tool",
+                        label="Download cluster configuration",
                         data=df_filtered_cluster_download.to_csv(
                             index=False, sep=","),
                         file_name=f"ECM_Tool_{cluster}_cluster.txt",
@@ -874,14 +876,29 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
 def _edit_clustering(choice):
     if choice == "DBSCAN":
-        min_samples = st.slider("Min samples", 1, 10, step=1, value=5)
-        radius = st.slider("Distance", 1, 100, step=1, value=10)
+        st.markdown(
+            """<small><i>DBSCAN clustering is based on the density of points. It requires two parameters: the minimum number of sites and the distance between sites (in km).</i></small>""",
+            unsafe_allow_html=True
+        )
+        min_samples = st.slider(
+            "Minimum number of sites", 1, 10, step=1, value=5)
+        radius = st.slider("Distance between sites (km)",
+                           1, 100, step=1, value=10)
         return min_samples, radius, None
 
     if choice == "KMEANS":
+        st.markdown(
+            """<small><i>KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location only.</i></small>""",
+            unsafe_allow_html=True
+        )
         n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
         return None, None, n_cluster
+
     if choice == "KMEANS (weighted)":
+        st.markdown(
+            """<small><i>Weighted KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location, weighted by their total energy demand.</i></small>""",
+            unsafe_allow_html=True
+        )
         n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
         return None, None, n_cluster
 
