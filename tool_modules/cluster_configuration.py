@@ -46,12 +46,15 @@ def cluster_configuration():
 
     if choice == "Upload a cluster":
         df_cluster, cluster_name = upload_cluster()
-    if not df_cluster.empty and df_cluster['Site'].notnull().any():
+    if not df_cluster.empty and df_cluster['site'].notnull().any():
         # Input cluster name first
         cluster_name = st.text_input(
             "Enter a name for your Cluster", value=cluster_name)
 
-    if not df_cluster.empty and df_cluster['Site'].notnull().any():
+    if not df_cluster.empty and df_cluster['site'].notnull().any():
+
+        with st.expander("Sites in the cluster", expanded=True):
+            st.dataframe(df_cluster, hide_index=True, use_container_width=True)
 
         # Save button
         if "Cluster name" not in st.session_state:
@@ -83,6 +86,7 @@ def cluster_configuration():
                     mime="text/plain",
                     type="tertiary"
                 )
+
         else:
             st.text("Please upload or create a cluster before saving.")
 
@@ -121,8 +125,8 @@ def _get_df_site_parameters(product):
 
     # --- Define the template DataFrame ---
     df_template = pd.DataFrame({
-        'Site': pd.Series(dtype='str'),
-        'Production capacity (kt)': pd.Series(dtype='float64'),
+        'site': pd.Series(dtype='str'),
+        'production capacity (kt)': pd.Series(dtype='float64'),
     })
 
     # --- Let the user edit the DataFrame with column config ---
@@ -132,14 +136,14 @@ def _get_df_site_parameters(product):
         hide_index=True,  # hides the index column
         use_container_width=True,
         key=f"site_parameters_{product}",
-        column_order=['Site', 'Production capacity (kt)'],
+        column_order=['site', 'production capacity (kt)'],
         column_config={
-            "Site": st.column_config.TextColumn(
-                "Site",
+            "site": st.column_config.TextColumn(
+                "site",
                 help="Enter the site name"
             ),
-            "Production capacity (kt)": st.column_config.NumberColumn(
-                "Production capacity (kt)",
+            "production capacity (kt)": st.column_config.NumberColumn(
+                "production capacity (kt)",
                 help="Enter production capacity in kt",
                 min_value=0.0,
                 format="%.2f"
@@ -160,8 +164,11 @@ def upload_cluster():
     )
     cluster_name = "Upload file"
     if uploaded_file:
+        import re
         cluster_name = uploaded_file.name.split(".")[0]
-        cluster_name = cluster_name.split("_")[2]
+        match = re.search(r"ECM_Tool_(.+)_cluster$", cluster_name)
+        if match:
+            cluster_name = match.group(1)
         # Read the uploaded file directly into a DataFrame
         df = pd.read_csv(uploaded_file, sep=",")
         # Try to infer sector and product columns, or fallback to template
@@ -178,32 +185,33 @@ def upload_cluster():
                                 df_product = df_product
                             else:
                                 df_product = pd.DataFrame({
-                                    'Site': pd.Series(dtype='str'),
-                                    'Production capacity (kt)': pd.Series(dtype='float64'),
+                                    'site': pd.Series(dtype='str'),
+                                    'production capacity (kt)': pd.Series(dtype='float64'),
                                 })
 
                             # --- Let the user edit the DataFrame with column config ---
                             edited_df = st.data_editor(
                                 df_product,
                                 num_rows="dynamic",
-                                hide_index=True,  # hides the index column
+                                hide_index=True,
                                 use_container_width=True,
                                 key=f"site_parameters_{product}",
                                 column_order=[
-                                    'Site', 'Production capacity (kt)'],
+                                    'site', 'production capacity (kt)'],
                                 column_config={
-                                    "Site": st.column_config.TextColumn(
-                                        "Site",
+                                    "site": st.column_config.TextColumn(
+                                        "site",
                                         help="Enter the site name"
                                     ),
-                                    "Production capacity (kt)": st.column_config.NumberColumn(
-                                        "Production capacity (kt)",
+                                    "production capacity (kt)": st.column_config.NumberColumn(
+                                        "production capacity (kt)",
                                         help="Enter production capacity in kt",
                                         min_value=0.0,
                                         format="%.2f"
                                     ),
                                 }
                             )
+
                             if not edited_df.empty:
                                 edited_df['product'] = product
                                 edited_df['sector'] = sector
@@ -222,5 +230,4 @@ def upload_cluster():
 
     if modified:
         cluster_name += " modified"
-    st.write(df_cluster)
     return df_cluster, cluster_name

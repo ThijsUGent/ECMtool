@@ -259,7 +259,7 @@ def map_per_pathway():
                         label="Download cluster to use in cluster - micro scale tool",
                         data=df_filtered_cluster_download.to_csv(
                             index=False, sep=","),
-                        file_name=f"ECM_Tool_{cluster}_data.txt",
+                        file_name=f"ECM_Tool_{cluster}_cluster.txt",
                         mime='text/plain'
                     )
 
@@ -353,7 +353,6 @@ def _tree_map(df):
         total_energy = df_long["value"].sum()
         unit = df_long["unit"].iloc[0]
         total_energy, unit_real = _energy_convert(total_energy, unit, elec)
-
         # Create treemap
         fig = px.treemap(
             df_long,
@@ -361,11 +360,12 @@ def _tree_map(df):
             values="value",
             color="energy_source",
             hover_data={"value": True, "unit": True},
+            color_discrete_map=dict(
+                zip(df_long["energy_source"], df_long["color_value"]))
         )
 
         fig.update_layout(
             title_text=f"Energy Use Breakdown<br><sub>Total energy per annum: {total_energy} {unit_real}</sub>")
-        fig.update_traces(marker_colors=df_long["color_value"].tolist())
 
         st.plotly_chart(fig)
 

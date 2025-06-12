@@ -177,9 +177,9 @@ def _display_cluster_pathway(column_pathway_pairs, cluster, selected_columns, un
                 selected_pathway, sector_utilization, selected_columns, cluster)
             df_perton['unit'] = unit
             if chart == "Sankey Diagram":
-                _sankey(df_perton, unit)
+                _sankey(df_perton, unit, cluster, selected_pathway, col)
             elif chart == "Treemap":
-                _tree_map(df_perton)
+                _tree_map(df_perton, cluster, selected_pathway, col)
 
 
 def _energy_convert(value, unit, elec=False):
@@ -218,7 +218,15 @@ def _energy_convert(value, unit, elec=False):
             return round(value), "GJ"
 
 
-def _tree_map(df):
+def _tree_map(df, cluster, pathway, column):
+    """
+    Create a treemap visualization of energy use breakdown.
+    Parameters:
+        df (pd.DataFrame): DataFrame containing energy use data.
+        cluster (str): Name of the cluster.
+        pathway (str): Name of the pathway.
+    """
+
     if df is not None and not df.empty:
         energy_cols = [col for col in df.columns if "[" in col]
         rename_map = {col: " ".join(
@@ -240,8 +248,8 @@ def _tree_map(df):
         df_long = pd.DataFrame({
             "energy_source": columns_plot,
             "value": [row[col] for col in columns_plot],
-            # fallback colour
-            "color_value": [color_map.get(col, "#cccccc") for col in columns_plot],
+            # fallback colour, use cleaned names for color_map lookup
+            "color_value": [color_map.get(rename_map.get(col, col), "#cccccc") for col in columns_plot],
         })
 
         # Add cleaned label and unit
@@ -258,18 +266,25 @@ def _tree_map(df):
             df_long,
             path=["label"],
             values="value",
-            color="color_value",
+            color="energy_source",
             hover_data={"value": True, "unit": True},
+            color_discrete_map=dict(
+                zip(df_long["energy_source"], df_long["color_value"]))
         )
 
         fig.update_layout(
-            title_text=f"Energy Use Breakdown<br><sub>Total energy per annum: {total_energy} {unit_real}</sub>")
-        fig.update_traces(marker_colors=df_long["color_value"].tolist())
+            title_text=f"Energy Use {cluster} <br><sub>Pathway : {pathway}<sub> <br> Total energy per annum: {total_energy} {unit_real}")
 
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, key=f"{cluster}_{pathway}_{column}")
 
 
-def _sankey(df, unit):
+def _sankey(df, unit, cluster, pathway, column):
+    """
+    Create a Sankey diagram to visualize energy flow from carriers to sectors.
+    Parameters:
+        df (pd.DataFrame): DataFrame containing energy flow data.
+        unit (str): Unit of energy, either 'GJ' or 't'.
+    """
     if df is not None:
         energy_cols = [col for col in df.columns if any(
             col.startswith(feed) for feed in type_ener_feed)]
@@ -329,13 +344,14 @@ def _sankey(df, unit):
         fig.update_layout(
             hovermode='x',
             title=dict(
-                text=f"Energy Carrier to Sector <br> <sub> Total energy per annum: {total_energy:.2f} {unit_real}</sub>"
+                text=f"Energy Use {cluster} <br><sub>Pathway : {pathway}<sub> <br> Total energy per annum: {total_energy} {unit_real}"
             ),
             font=dict(color="black", size=12),
             hoverlabel=dict(font=dict(color="black"))
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,
+                        key=f"{cluster}_{pathway}_{column}")
 
 
 def _get_utilization_rates(sectors):
