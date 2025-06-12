@@ -1,13 +1,97 @@
-# Streamlit interface and data tools
-import streamlit as st
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import json
-
-from tool_modules.import_export_file import *
-from tool_modules.eu_mix_preconfiguration import *
 from tool_modules.categorisation import *
+from tool_modules.eu_mix_preconfiguration import *
+from tool_modules.import_export_file import *
+import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+
+def edit_dataframe_selection_and_weighting(df_product, valid_config_id, columns_to_show_selection, sector, product, mode_key):
+    """
+    Allows user to select and assign weights to production routes using Streamlit data editors.
+
+    Parameters:
+    - df_product (pd.DataFrame): Subset of the main dataframe for one sector-product.
+    - valid_config_id (set or dict): Set or dict of valid configuration IDs to preselect.
+    - columns_to_show_selection (list): Ordered list of columns to display in editor.
+    - sector (str): Sector name.
+    - product (str): Product name.
+    - mode_key (str): Prefix key for Streamlit widget keys to differentiate mode (e.g., 'eumix', 'custom').
+
+    Returns:
+    - pd.DataFrame: Edited DataFrame containing only selected routes and weights.
+    - bool: True if edited, False otherwise.
+    """
+    # Handle dict vs set for valid_config_id
+    if isinstance(valid_config_id, dict):
+        config_weight_map = {int(k): float(v)
+                             for k, v in valid_config_id.items()}
+        valid_config_id_set = set(config_weight_map.keys())
+    else:
+        config_weight_map = {}
+        valid_config_id_set = set(valid_config_id)
+
+    df_product["selected"] = df_product["configuration_id"].isin(
+        valid_config_id_set)
+    df_product["route_weight"] = (
+        df_product["configuration_id"].astype(int)
+        .map(config_weight_map)
+        .fillna(0)
+    )
+
+    cols = df_product.columns.tolist()
+    cols.remove("selected")
+    df_product = df_product[["selected"] + cols].reset_index(drop=True)
+
+    edited_df = st.data_editor(
+        df_product,
+        num_rows="fixed",
+        column_config={
+            "selected": st.column_config.CheckboxColumn("selected")},
+        column_order=columns_to_show_selection,
+        disabled=df_product.columns.difference(["selected"]).tolist(),
+        hide_index=True,
+        key=f"editor_{mode_key}_{sector}_{product}",
+    )
+
+    selected_df = edited_df[edited_df["selected"] == True].copy()
+    modified = not edited_df.equals(df_product)
+
+    if modified:
+        if not selected_df.empty:
+            selected_df["route_weight"] = round(1 / len(selected_df), 4) * 100
+        else:
+            selected_df["route_weight"] = 0
+
+    st.text("Edit the weight (%)")
+
+    edited_selected_df = st.data_editor(
+        selected_df,
+        num_rows="fixed",
+        column_config={
+            "route_weight": st.column_config.NumberColumn("route_weight")},
+        disabled=selected_df.columns.difference(["route_weight"]).tolist(),
+        hide_index=True,
+        column_order=["configuration_name", "route_weight"],
+        use_container_width=True,
+        key=f"selected_df_{mode_key}_{sector}_{product}",
+    )
+
+    return edited_selected_df, modified
+
+# Streamlit interface and data tools
+
+
+def _other_sectors_product(df):
+    """
+    Display configurations not belonging to the main sectors under 'Other sectors'.
+
+    Returns:
+    - dict: Mapping from sector_product string to edited dataframe.
+    """
+    st.write("Under construction")
 
 
 def preconfigure_path(df, columns_to_show_selection):
@@ -37,96 +121,47 @@ def preconfigure_path(df, columns_to_show_selection):
     filtered_df = df[df["configuration_id"].isin(valid_config_id)]
     unique_sectors = sorted(filtered_df["sector_name"].unique())
     if st.checkbox("Edit pathway"):
-        for sector in unique_sectors:
-            sectors_list.append(sector)
-        tabs = st.tabs(sectors_list)
-        for i, sector in enumerate(sectors_list):
-            with tabs[i]:
-                all_products = sorted(
-                    df[df["sector_name"] == sector]["product_name"].unique()
-                )
-                for product in all_products:
-                    with st.expander(f"{product}", expanded=False):
-                        # Filter for sector-product and copy
-                        df_product = df[
-                            (df["sector_name"] == sector)
-                            & (df["product_name"] == product)
-                        ].copy()
-
-                        # Preselect configurations relevant to EU-MIX
-                        df_product["selected"] = df_product["configuration_id"].isin(
-                            valid_config_id
+        sectors_list = unique_sectors.copy()
+        sectors_list_plus_other = sectors_list + ["Other sectors"]
+        selected_sectors = st.pills(
+            "Select sector(s) to configure",
+            sectors_list,
+            selection_mode="multi",
+            default=sectors_list
+        )
+        if len(selected_sectors) < 1:
+            st.warning("Please select at least one sector")
+        else:
+            tabs = st.tabs(selected_sectors)
+            for i, sector in enumerate(selected_sectors):
+                with tabs[i]:
+                    if sector == "Other sectors":
+                        dict_other = _other_sectors_product(
+                            df,
                         )
-                        df_product["route_weight"] = (
-                            df_product["configuration_id"].astype(int)
-                            .map(configuration_id_EUMIX_weight)
-                            .fillna(0)
-                        )
-
-                        # Move "selected" column to front
-                        cols = df_product.columns.tolist()
-                        cols.remove("selected")
-                        df_product = df_product[["selected"] + cols].reset_index(
-                            drop=True
-                        )
-
-                        # Show editable checkbox table
-                        edited_df = st.data_editor(
-                            df_product,
-                            num_rows="fixed",
-                            column_config={
-                                "selected": st.column_config.CheckboxColumn("selected")
-                            },
-                            column_order=columns_to_show_selection,
-                            disabled=df_product.columns.difference(
-                                ["selected"]
-                            ).tolist(),
-                            hide_index=True,
-                            key=f"editor_eumix_{sector}_{product}",
-                        )
-
-                        # Handle weighting of selected routes
-                        selected_df_product = edited_df[
-                            edited_df["selected"] == True
-                        ].copy()
-
-                        if not edited_df.equals(df_product):
-                            selected_df_product["route_weight"] = (
-                                round(1 / len(selected_df_product), 4) * 100
+                        dict_routes_selected.update(dict_other)
+                        continue
+                    all_products = sorted(
+                        df[df["sector_name"] == sector]["product_name"].unique()
+                    )
+                    for product in all_products:
+                        with st.expander(f"{product}", expanded=False):
+                            df_product = df[
+                                (df["sector_name"] == sector)
+                                & (df["product_name"] == product)
+                            ].copy()
+                            edited_selected_df_product, was_modified = edit_dataframe_selection_and_weighting(
+                                df_product, configuration_id_EUMIX_weight, columns_to_show_selection, sector, product, "eumix"
                             )
-                            modified = True
-                        else:
-                            # Creation of edited_selected_df_product
-                            edited_selected_df_product = df_product
-
-                        # Allow user to edit weights manually
-                        st.text("Edit the weight (%)")
-                        edited_selected_df_product = st.data_editor(
-                            selected_df_product,
-                            num_rows="fixed",
-                            column_config={
-                                "route_weight": st.column_config.NumberColumn(
-                                    "route_weight"
-                                )
-                            },
-                            disabled=selected_df_product.columns.difference(
-                                ["route_weight"]
-                            ).tolist(),
-                            hide_index=True,
-                            column_order=[
-                                "configuration_name", "route_weight"],
-                            use_container_width=True,
-                            key=f"selected_df_product_eumix_{sector}_{product}",
-                        )
-                        total_weight = edited_selected_df_product["route_weight"].sum(
-                        )
-
-                        if 99.95 <= total_weight <= 100.05 or total_weight == 0:
-                            # Store result in final selection dictionary
-                            dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
-                        else:
-                            st.warning(
-                                f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+                            total_weight = edited_selected_df_product["route_weight"].sum(
+                            )
+                            if 99.95 <= total_weight <= 100.05 or total_weight == 0:
+                                dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
+                            else:
+                                st.warning(
+                                    f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+                            if was_modified:
+                                modified = True
     else:
         for sector in unique_sectors:
             all_products = sorted(
@@ -138,21 +173,15 @@ def preconfigure_path(df, columns_to_show_selection):
                     (df["sector_name"] == sector)
                     & (df["product_name"] == product)
                 ].copy()
-
-                # Preselect configurations relevant to EU-MIX
                 df_product["selected"] = df_product["configuration_id"].isin(
-                    valid_config_id
-                )
+                    valid_config_id)
                 df_product["route_weight"] = (
                     df_product["configuration_id"].astype(int)
                     .map(configuration_id_EUMIX_weight)
                     .fillna(0)
                 )
-
-                total_weight = df_product["route_weight"].sum(
-                )
+                total_weight = df_product["route_weight"].sum()
                 if 99.95 <= total_weight <= 100.05 or total_weight == 0:
-                    # Store result in final selection dictionary
                     dict_routes_selected[f"{sector}_{product}"] = df_product
                 else:
                     st.warning(
@@ -171,6 +200,9 @@ def create_path(df, columns_to_show_selection):
     sectors_list = []
     for sector in sorted(df["sector_name"].unique()):
         sectors_list.append(sector)
+    sectors_list_plus_other = sectors_list.copy()
+    # Add "Other sectors" option
+    sectors_list_plus_other.append("Other sectors")
     selected_sectors = st.pills(
         "Sector(s)", sectors_list, selection_mode="multi")
     if len(selected_sectors) < 1:
@@ -179,75 +211,30 @@ def create_path(df, columns_to_show_selection):
         tabs = st.tabs(selected_sectors)
         for i, sector in enumerate(selected_sectors):
             with tabs[i]:
+                if sector == "Other sectors":
+                    dict_other = _other_sectors_product(
+                        df)
+                    dict_routes_selected.update(dict_other)
+                    continue
                 all_products = sorted(
                     df[df["sector_name"] == sector]["product_name"].unique()
                 )
                 for product in all_products:
                     with st.expander(f"{sector} - {product}", expanded=False):
-                        df_product = df[df["product_name"]
-                                        == product].copy()
+                        df_product = df[df["product_name"] == product].copy()
                         # Default: unselected
                         df_product["selected"] = False
-
-                        # Move "selected" column to front
                         cols = df_product.columns.tolist()
                         cols.remove("selected")
-                        df_product = df_product[["selected"] + cols].reset_index(
-                            drop=True
-                        )
-
-                        edited_df = st.data_editor(
-                            df_product,
-                            num_rows="fixed",
-                            column_config={
-                                "selected": st.column_config.CheckboxColumn(
-                                    "selected"
-                                )
-                            },
-                            column_order=columns_to_show_selection,
-                            disabled=df_product.columns.difference(
-                                ["selected"]
-                            ).tolist(),
-                            hide_index=True,
-                            key=f"editor_custom_{sector}_{product}",
-                        )
-
-                        # Handle weighting of selected routes
-                        selected_df_product = edited_df[
-                            edited_df["selected"] == True
-                        ].copy()
-                        if not selected_df_product.empty:
-                            selected_df_product["route_weight"] = (
-                                round(1 / len(selected_df_product), 4) * 100
-                            )
-                        else:
-                            # Creation of edited_selected_df_product
-                            edited_selected_df_product = selected_df_product
-                            edited_selected_df_product["route_weight"] = 0
-
-                        st.text("Edit the weight (%)")
-
-                        edited_selected_df_product = st.data_editor(
-                            selected_df_product,
-                            num_rows="fixed",
-                            column_config={
-                                "route_weight": st.column_config.NumberColumn(
-                                    "route_weight"
-                                )
-                            },
-                            disabled=selected_df_product.columns.difference(
-                                ["route_weight"]
-                            ).tolist(),
-                            hide_index=True,
-                            column_order=[
-                                "configuration_name", "route_weight"],
-                            use_container_width=True,
-                            key=f"selected_df_product_custom_{sector}_{product}",
+                        df_product = df_product[[
+                            "selected"] + cols].reset_index(drop=True)
+                        # Use helper for editing selection and weighting
+                        edited_selected_df_product, _ = edit_dataframe_selection_and_weighting(
+                            df_product, set(), columns_to_show_selection, sector, product, "custom"
                         )
                         total_weight = edited_selected_df_product["route_weight"].sum(
                         )
                         if 99.95 <= total_weight <= 100.05 or total_weight == 0:
-                            # Store result in final selection dictionary
                             dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                         else:
                             st.warning(
@@ -284,7 +271,6 @@ def upload_path(df, columns_to_show_selection):
 
             # List creation to displai tabs and configuration visualisation/modification
             sectors_list = []
-            all_sector_list = df["sector_name"].unique().tolist()
             # Ensure configuration_id_EUMIX_weight keys are treated as integers
             valid_config_id = set(
                 map(int, configuration_id_EUMIX_weight.keys()))
@@ -294,94 +280,44 @@ def upload_path(df, columns_to_show_selection):
             if st.checkbox("Edit pathway:"):
                 for sector in unique_sectors:
                     sectors_list.append(sector)
-                tabs = st.tabs(all_sector_list)
-                for i, sector in enumerate(all_sector_list):
-                    with tabs[i]:
-                        all_products = sorted(
-                            df[df["sector_name"] ==
-                                sector]["product_name"].unique()
-                        )
-                        for product in all_products:
-                            with st.expander(f"{product}", expanded=False):
-                                # Filter for sector-product sand copy
-                                df_product = df[
-                                    (df["sector_name"] == sector)
-                                    & (df["product_name"] == product)
-                                ].copy()
-
-                                # Preselect configurations relevant to EU-MIX
-                                df_product["selected"] = df_product["configuration_id"].isin(
-                                    valid_config_id
-                                )
-                                df_product["route_weight"] = (
-                                    df_product["configuration_id"]
-                                    .map(configuration_id_EUMIX_weight)
-                                    .fillna(0)
-                                )
-                                cols = df_product.columns.tolist()
-                                cols.remove("selected")
-                                df_product = df_product[["selected"] + cols].reset_index(
-                                    drop=True
-                                )
-
-                                # Show editable checkbox table
-                                edited_df = st.data_editor(
-                                    df_product,
-                                    num_rows="fixed",
-                                    column_config={
-                                        "selected": st.column_config.CheckboxColumn("selected")
-                                    },
-                                    column_order=columns_to_show_selection,
-                                    disabled=df_product.columns.difference(
-                                        ["selected"]
-                                    ).tolist(),
-                                    hide_index=True,
-                                    key=f"editor_eumix_{sector}_{product}",
-                                )
-
-                                # Handle weighting of selected routes
-                                selected_df_product = edited_df[
-                                    edited_df["selected"] == True
-                                ].copy()
-
-                                if not edited_df.equals(df_product):
-                                    selected_df_product["route_weight"] = (
-                                        round(
-                                            1 / len(selected_df_product), 4) * 100
+                sectors_list_plus_other = sectors_list.copy()
+                # Add "Other sectors" option
+                sectors_list_plus_other.append("Other sectors")
+                selected_sectors = st.pills(
+                    "Sector(s)", sectors_list, selection_mode="multi", default=sectors_list)
+                if len(selected_sectors) < 1:
+                    st.warning("Please select at least 1 sector")
+                else:
+                    tabs = st.tabs(selected_sectors)
+                    for i, sector in enumerate(selected_sectors):
+                        with tabs[i]:
+                            if sector == "Other sectors":
+                                dict_other = _other_sectors_product(
+                                    df)
+                                dict_routes_selected.update(dict_other)
+                                continue
+                            all_products = sorted(
+                                df[df["sector_name"] ==
+                                    sector]["product_name"].unique()
+                            )
+                            for product in all_products:
+                                with st.expander(f"{product}", expanded=False):
+                                    df_product = df[
+                                        (df["sector_name"] == sector)
+                                        & (df["product_name"] == product)
+                                    ].copy()
+                                    edited_selected_df_product, was_modified = edit_dataframe_selection_and_weighting(
+                                        df_product, configuration_id_EUMIX_weight, columns_to_show_selection, sector, product, "eumix"
                                     )
-                                    modified = True
-                                else:
-                                    # Creation of edited_selected_df_product
-                                    edited_selected_df_product = df_product
-
-                                # Allow user to edit weights manually
-                                st.text("Edit the weight (%)")
-                                edited_selected_df_product = st.data_editor(
-                                    selected_df_product,
-                                    num_rows="fixed",
-                                    column_config={
-                                        "route_weight": st.column_config.NumberColumn(
-                                            "route_weight"
-                                        )
-                                    },
-                                    disabled=selected_df_product.columns.difference(
-                                        ["route_weight"]
-                                    ).tolist(),
-                                    hide_index=True,
-                                    column_order=[
-                                        "configuration_name", "route_weight"],
-                                    use_container_width=True,
-                                    key=f"selected_df_product_eumix_{sector}_{product}",
-                                )
-
-                                total_weight = edited_selected_df_product["route_weight"].sum(
-                                )
-                                if 99.95 <= total_weight <= 100.05 or total_weight == 0:
-                                    # Store result in final selection dictionary
-                                    dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
-                                else:
-                                    st.warning(
-                                        f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+                                    total_weight = edited_selected_df_product["route_weight"].sum(
+                                    )
+                                    if 99.95 <= total_weight <= 100.05 or total_weight == 0:
+                                        dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
+                                    else:
+                                        st.warning(
+                                            f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+                                    if was_modified:
+                                        modified = True
             else:
                 for sector in unique_sectors:
                     all_products = sorted(
@@ -393,21 +329,15 @@ def upload_path(df, columns_to_show_selection):
                             (df["sector_name"] == sector)
                             & (df["product_name"] == product)
                         ].copy()
-
-                        # Preselect configurations relevant to EU-MIX
                         df_product["selected"] = df_product["configuration_id"].isin(
-                            valid_config_id
-                        )
+                            valid_config_id)
                         df_product["route_weight"] = (
                             df_product["configuration_id"].astype(int)
                             .map(configuration_id_EUMIX_weight)
                             .fillna(0)
                         )
-
-                        total_weight = df_product["route_weight"].sum(
-                        )
+                        total_weight = df_product["route_weight"].sum()
                         if 99.95 <= total_weight <= 100.05 or total_weight == 0:
-                            # Store result in final selection dictionary
                             dict_routes_selected[f"{sector}_{product}"] = df_product
                         else:
                             st.warning(

@@ -185,7 +185,7 @@ def map_per_pathway():
                 selected_columns = [
                     values_feed[options_feed.index(label)] for label in selected_feed_labels
                 ]
-        st.text('________')
+        st.divider()
         st.text('Edit utilisation rate per sector')
         st.markdown(""" *Default value 100 %* """)
         with st.expander("Utilisation rate"):
@@ -196,15 +196,16 @@ def map_per_pathway():
                 df, pathway, sector_utilization, selected_columns)
             # Convert to GeoDataFrame
             dict_gdf[pathway] = gdf_prod_x_perton
-        st.text('________')
-        choice = st.radio("Cluster method", ["DBSCAN", "KMEANS"])
+        st.divider()
+        choice = st.radio("Cluster method", [
+                          "DBSCAN", "KMEANS", "KMEANS (weighted)"])
         min_samples, radius, n_cluster = _edit_clustering(choice)
         dict_gdf_clustered = {}
         for pathway in pathways_names:
             gdf_clustered = _run_clustering(
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
-        st.text('________')
+        st.divider()
         map_choice = st.radio("Mapping view", ["cluster centroid", "site"])
     with col2:
 
@@ -214,7 +215,7 @@ def map_per_pathway():
         ).tolist()
         sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
                                               sectors_included, selection_mode="multi", default=sectors_included)
-        st.markdown("""*Click on a cluster to see details*""")
+        st.markdown("""*Click on a cluster to see details **below the map***""")
 
         # Selected sectors
         dict_gdf_clustered[pathway].copy()
@@ -240,16 +241,29 @@ def map_per_pathway():
                 _tree_map(df_selected)
             elif chart == "Sankey Diagram":
                 _sankey(df_filtered_cluster, unit)
-            with st.expander("Show sites within the cluster"):
+            with st.expander("Show  or download sites within the cluster"):
+                st.text(
+                    "It is possible to download the cluster configuration to use it in the cluster tool")
                 if df_filtered_cluster is not None:
                     df_filtered_cluster_show = df_filtered_cluster[[
-                        "site_name", "aidres_sector_name", "production_route_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+
                     df_filtered_cluster_show.columns = [
-                        col.replace('_', ' ').replace(
-                            'utilization rate', 'utilisation rate')
+                        col.replace(
+                            'utilization rate', 'utilisation rate').replace("site_name", "site").replace("aidres_sector_name", "sector").replace("product_name", "product").replace("prod_cap", "production capacity (kt)").replace("prod_rate", "production rate (kt)").replace("total_energy", "total energy")
                         for col in df_filtered_cluster_show.columns
                     ]
                     st.write(df_filtered_cluster_show)
+                    df_filtered_cluster_download = df_filtered_cluster_show[[
+                        "site", "sector", "product", "production capacity (kt)"]]
+                    cluster = st.text_input("Enter a name for the cluster",)
+                    st.download_button(
+                        label="Download cluster configuration",
+                        data=df_filtered_cluster_download.to_csv(
+                            index=False, sep=","),
+                        file_name=f"ECM_Tool_{cluster}_cluster.txt",
+                        mime='text/plain'
+                    )
 
 
 def _clean_seleted_to_df(selected):
@@ -318,7 +332,6 @@ def _tree_map(df):
             col for col in df.columns
             if any(col.startswith(feed.split("_")[0]) for feed in type_ener_feed)
         ]
-
         # Extract the single row of interest
         row = df.iloc[0]
         if columns_plot == ["electricity"]:
@@ -342,7 +355,6 @@ def _tree_map(df):
         total_energy = df_long["value"].sum()
         unit = df_long["unit"].iloc[0]
         total_energy, unit_real = _energy_convert(total_energy, unit, elec)
-
         # Create treemap
         fig = px.treemap(
             df_long,
@@ -350,11 +362,12 @@ def _tree_map(df):
             values="value",
             color="energy_source",
             hover_data={"value": True, "unit": True},
+            color_discrete_map=dict(
+                zip(df_long["energy_source"], df_long["color_value"]))
         )
 
         fig.update_layout(
             title_text=f"Energy Use Breakdown<br><sub>Total energy per annum: {total_energy} {unit_real}</sub>")
-        fig.update_traces(marker_colors=df_long["color_value"].tolist())
 
         st.plotly_chart(fig)
 
@@ -863,11 +876,29 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
 def _edit_clustering(choice):
     if choice == "DBSCAN":
-        min_samples = st.slider("Min samples", 1, 10, step=1, value=5)
-        radius = st.slider("Distance", 1, 100, step=1, value=10)
+        st.markdown(
+            """<small><i>DBSCAN clustering is based on the density of points. It requires two parameters: the minimum number of sites and the distance between sites (in km).</i></small>""",
+            unsafe_allow_html=True
+        )
+        min_samples = st.slider(
+            "Minimum number of sites", 1, 10, step=1, value=5)
+        radius = st.slider("Distance between sites (km)",
+                           1, 100, step=1, value=10)
         return min_samples, radius, None
 
     if choice == "KMEANS":
+        st.markdown(
+            """<small><i>KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location only.</i></small>""",
+            unsafe_allow_html=True
+        )
+        n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
+        return None, None, n_cluster
+
+    if choice == "KMEANS (weighted)":
+        st.markdown(
+            """<small><i>Weighted KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location, weighted by their total energy demand.</i></small>""",
+            unsafe_allow_html=True
+        )
         n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
         return None, None, n_cluster
 
@@ -879,6 +910,9 @@ def _run_clustering(choice, gdf, min_samples, radius, n_cluster):
 
     if choice == "KMEANS":
         gdf_clustered = _cluster_gdf_kmeans(gdf, n_cluster)
+
+    if choice == "KMEANS (weighted)":
+        gdf_clustered = _cluster_gdf_kmeans_weight(gdf, n_cluster)
 
     if (gdf_clustered["cluster"] != -1).any():
         return gdf_clustered
@@ -995,4 +1029,33 @@ def _cluster_gdf_kmeans(gdf, n_clusters=5):
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords_scaled)
     gdf['cluster'] = kmeans.labels_
 
+    return gdf
+
+
+def _cluster_gdf_kmeans_weight(gdf, n_clusters=5):
+    """
+    Perform KMeans clustering on a GeoDataFrame using lat/lon and weighted by total_energy.
+
+    Parameters:
+    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries and 'total_energy' column.
+    n_clusters (int): The number of clusters to form.
+
+    Returns:
+    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
+    """
+    # Ensure geometry is in lat/lon
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
+
+    coords = gdf[['lat', 'lon']].to_numpy()
+    scaler = StandardScaler()
+    coords_scaled = scaler.fit_transform(coords)
+
+    weights = gdf['total_energy'].to_numpy()
+    weights = gdf['total_energy']
+    weights_normalised = weights / weights.mean()  # or weights / weights.max()
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+    kmeans.fit(coords_scaled, sample_weight=weights_normalised)
+
+    gdf['cluster'] = kmeans.labels_
     return gdf

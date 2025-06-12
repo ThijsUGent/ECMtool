@@ -46,7 +46,7 @@ def main():
         buttons = True
         About()
 
-    st.sidebar.text("________________________")
+    st.sidebar.divider()
     st.sidebar.subheader("Tool")
 
     # Static label above the radio
