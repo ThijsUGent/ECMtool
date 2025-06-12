@@ -215,6 +215,8 @@ def map_per_pathway():
         ).tolist()
         sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
                                               sectors_included, selection_mode="multi", default=sectors_included)
+        st.markdown(
+            '<span style="font-size: 0.85em;">*Only sectors & products included in AIDRES database*</span>', unsafe_allow_html=True)
         st.markdown("""*Click on a cluster to see details **below the map***""")
 
         # Selected sectors

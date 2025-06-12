@@ -32,10 +32,13 @@ def select_page():
         perton_ALL_no_mix = perton_ALL[~perton_ALL["configuration_name"].str.contains(
             "mix")]
 
+        perton_ALL_no_mix["route_name"] = perton_ALL_no_mix["configuration_name"].replace(
+            "route_name")
+
         # Columns to be shown in the route selection editor
         columns_to_show_selection = [
             "selected",
-            "configuration_name",
+            "route_name",
             "horizon",
             "energy_feedstock",
             "technology_category",
@@ -103,8 +106,7 @@ def select_page():
                     else:
                         combined_df = pd.concat(
                             dict_routes_selected.values(), ignore_index=True)
-                        exported_txt = export_to_txt(combined_df, pathway_name)
-
+                        exported_txt = export_to_txt(combined_df)
                         st.download_button(
                             label="Click here to download",
                             data=exported_txt,

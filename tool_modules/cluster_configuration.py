@@ -79,6 +79,7 @@ def cluster_configuration():
                 exported_txt = combined_df.to_csv(
                     index=False, sep=","
                 )
+
                 st.download_button(
                     label="Click here to download",
                     data=exported_txt,
