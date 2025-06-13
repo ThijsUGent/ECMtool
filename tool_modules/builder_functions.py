@@ -108,12 +108,9 @@ def _other_sectors_product(df_template=None):
         "co2_allowance_[eur/t]", "direct_emission_[tco2/t]", "total_emission_[tco2/t]",
         "direct_emission_reduction_[%]", "total_emission_reduction_[%]", "captured_co2_[tco2/t]"
     ]
-    columns_fixed = ["route_name",
-                     "product_name"]
+    columns_fixed = ["route_name", "product_name"]
 
-    with st.expander(
-            "Energy parameters", expanded=False):
-
+    with st.expander("Energy parameters", expanded=False):
         columns_selected = st.pills(
             "Select energy parameters to edit",
             options=columns,
@@ -121,15 +118,18 @@ def _other_sectors_product(df_template=None):
             selection_mode="multi",
             key="other_sectors_product_selection"
         )
-    columns = columns_fixed + columns_selected
+    column_df = columns_fixed + columns_selected
     if df_template is None:
         df_template = pd.DataFrame(
-            columns=columns,
+            columns=column_df,
         )
     else:
         df_template = df_template[df_template["sector_name"]
-                                  == "Other sectors"]
-        df_template = df_template[columns]
+                                  == "Other sectors"].copy()
+        for col in column_df:
+            if col not in df_template.columns:
+                df_template[col] = np.nan
+        df_template = df_template[column_df]
     # Enforce data types
     for col in columns_fixed:
         df_template[col] = df_template[col].astype(str)
@@ -143,18 +143,18 @@ def _other_sectors_product(df_template=None):
             "route_weight": st.column_config.NumberColumn("route_weight")
         },
         hide_index=True,
-        column_order=columns,
+        column_order=column_df,
         use_container_width=True,
         key="other_sectors_product"
     )
-
+    df_edit[[col for col in columns if col not in columns_selected]] = 0
     df_edit["sector_name"] = "Other sectors"
     df_edit["route_weight"] = 100
+
     result_dict = {}
     grouped = df_edit.groupby(["sector_name", "product_name"])
     for (sector, product), group_df in grouped:
         result_dict[f"{sector}_{product}"] = group_df
-
     return result_dict
 
 

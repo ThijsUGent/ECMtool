@@ -404,7 +404,6 @@ def _get_df_prod_x_perton_cluster(pathway, sector_utilization, selected_columns,
         df_path = pd.concat(perton.values(), ignore_index=True)
 
         df_filtered = df_path[df_path["product_name"] == product]
-
         if not df_filtered.empty:
             def weighted_avg(df, value_cols, weight_col):
                 return pd.Series({
