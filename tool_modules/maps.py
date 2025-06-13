@@ -191,30 +191,52 @@ def map_per_pathway():
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
         dict_gdf = {}
+        pathways_names_filtered = []
         for pathway in pathways_names:
             gdf_prod_x_perton = _get_gdf_prod_x_perton(
                 df, pathway, sector_utilization, selected_columns)
             # Convert to GeoDataFrame
-            dict_gdf[pathway] = gdf_prod_x_perton
+            if gdf_prod_x_perton is not None:
+                dict_gdf[pathway] = gdf_prod_x_perton
+                pathways_names_filtered.append(pathway)
         st.divider()
         choice = st.radio("Cluster method", [
                           "DBSCAN", "KMEANS", "KMEANS (weighted)"])
         min_samples, radius, n_cluster = _edit_clustering(choice)
         dict_gdf_clustered = {}
-        for pathway in pathways_names:
+        for pathway in pathways_names_filtered:
             gdf_clustered = _run_clustering(
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
         st.divider()
         map_choice = st.radio("Mapping view", ["cluster centroid", "site"])
     with col2:
+        if pathways_names_filtered == []:
+            # or pathways_names.tolist() if it's a Pandas Series
+            names = list(pathways_names)
+            # Format each name in italics using Markdown
+            italic_names = [f"*{name}*" for name in names]
 
-        pathway = st.radio("Select a pathway", pathways_names, horizontal=True)
+            if len(italic_names) == 1:
+                text = f"{italic_names[0]} not in AIDRES scope"
+            elif len(italic_names) == 2:
+                text = f"{italic_names[0]} & {italic_names[1]} not in AIDRES scope"
+            else:
+                text = f"{', '.join(italic_names[:-1])} & {italic_names[-1]} not in AIDRES scope"
+
+            st.markdown(text)
+            st.warning("Please select a pathway within AIDRES scope")
+            st.stop()
+
+        pathway = st.radio("Select a pathway",
+                           pathways_names_filtered, horizontal=True)
 
         sectors_included = dict_gdf_clustered[pathway]["aidres_sector_name"].unique(
         ).tolist()
         sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
                                               sectors_included, selection_mode="multi", default=sectors_included)
+        st.markdown(
+            '<span style="font-size: 0.85em;">*Only sectors & products included in AIDRES database*</span>', unsafe_allow_html=True)
         st.markdown("""*Click on a cluster to see details **below the map***""")
 
         # Selected sectors
@@ -461,8 +483,16 @@ def _get_utilization_rates(sectors):
 
 def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     perton = st.session_state["Pathway name"][pathway]
+    list_keys = list(perton.keys())
+    sectors_list = []
+    for key in list_keys:
+        sectors_list.append(key.split("_")[0])
+    unique_sectors = set(sectors_list)
+    if unique_sectors == {"Other sectors"}:
 
-    # Convert WKB hex to geometry
+        return None
+
+        # Convert WKB hex to geometry
     df['geometry'] = df['geom'].apply(lambda x: wkb.loads(bytes.fromhex(x)))
 
     # Convert to GeoDataFrame

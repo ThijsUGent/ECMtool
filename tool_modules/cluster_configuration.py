@@ -79,6 +79,7 @@ def cluster_configuration():
                 exported_txt = combined_df.to_csv(
                     index=False, sep=","
                 )
+
                 st.download_button(
                     label="Click here to download",
                     data=exported_txt,
@@ -92,37 +93,55 @@ def cluster_configuration():
 
 
 def _cluster_product_selection():
-    # Dictionary to collect selected site per sector-product
+    # Dictionary to collect selected sites per sector-product
     dict_cluster_selected = {}
+
+    sectors_list_all = ["Cement", "Chemical",
+                        "Fertilisers", "Glass", "Refineries", "Steel"]
+    sectors_list_plus_other = sectors_list_all + ["Other sectors"]
+
     selected_sectors = st.pills(
-        "Sector(s)", sectors_list, selection_mode="multi", default=sectors_list)
+        "Sector(s)", sectors_list_plus_other, selection_mode="multi"
+    )
+
     if not selected_sectors:
-        st.warning("Please select at least one sector")
+        st.warning("Please select at least 1 sector")
+        return pd.DataFrame()
+
     tabs = st.tabs(selected_sectors)
+
     for i, sector in enumerate(selected_sectors):
         with tabs[i]:
-            all_products = dict_product_by_sector[sector]
+            if sector == "Other sectors":
+                other_products = []
+                if st.session_state.get("Pathway name"):
+                    for name, pathway in st.session_state["Pathway name"].items():
+                        for sector_product in pathway.keys():
+                            split_parts = sector_product.split("_")
+                            if split_parts[0] == "Other sectors":
+                                other_products.append(split_parts[-1])
+                    all_products = other_products
+                else:
+                    all_products = []
+            else:
+                all_products = dict_product_by_sector[sector]
+
             for product in all_products:
-                with st.expander(f"{sector} - {product}", expanded=False):
+                with st.expander(f"{product}", expanded=False):
                     df = _get_df_site_parameters(product)
                     df["product"] = product
                     df["sector"] = sector
                     dict_cluster_selected[f"{sector}_{product}"] = df
 
-    all_empty = all(df.empty for df in dict_cluster_selected.values())
-
-    if all_empty:
+    if all(df.empty for df in dict_cluster_selected.values()):
         st.warning("Create at least one site in the cluster.")
         return pd.DataFrame()
-    df_cluster = pd.concat(
-        dict_cluster_selected.values())
+
+    df_cluster = pd.concat(dict_cluster_selected.values())
     return df_cluster
 
 
 def _get_df_site_parameters(product):
-    import pandas as pd
-    import streamlit as st
-
     # --- Define the template DataFrame ---
     df_template = pd.DataFrame({
         'site': pd.Series(dtype='str'),

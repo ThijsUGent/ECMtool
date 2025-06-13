@@ -8,7 +8,14 @@ import pandas as pd
 import streamlit as st
 
 
-def edit_dataframe_selection_and_weighting(df_product, valid_config_id, columns_to_show_selection, sector, product, mode_key):
+import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+
+def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection, sector, product, mode_key, df_upload=None):
     """
     Allows user to select and assign weights to production routes using Streamlit data editors.
 
@@ -24,22 +31,21 @@ def edit_dataframe_selection_and_weighting(df_product, valid_config_id, columns_
     - pd.DataFrame: Edited DataFrame containing only selected routes and weights.
     - bool: True if edited, False otherwise.
     """
-    # Handle dict vs set for valid_config_id
-    if isinstance(valid_config_id, dict):
-        config_weight_map = {int(k): float(v)
-                             for k, v in valid_config_id.items()}
-        valid_config_id_set = set(config_weight_map.keys())
-    else:
-        config_weight_map = {}
-        valid_config_id_set = set(valid_config_id)
+    if df_upload is not None:
+        df_product["selected"] = df_product["route_name"].isin(
+            df_upload["route_name"])
+        df_upload_map = df_upload.set_index("route_name")[
+            "route_weight"].to_dict()
 
-    df_product["selected"] = df_product["configuration_id"].isin(
-        valid_config_id_set)
-    df_product["route_weight"] = (
-        df_product["configuration_id"].astype(int)
-        .map(config_weight_map)
-        .fillna(0)
-    )
+        df_product["route_weight"] = (
+            df_product["route_name"]
+            .map(df_upload_map)
+            .fillna(0)
+        )
+
+    else:
+        df_product["selected"] = False
+        df_product["route_weight"] = None
 
     cols = df_product.columns.tolist()
     cols.remove("selected")
@@ -74,7 +80,7 @@ def edit_dataframe_selection_and_weighting(df_product, valid_config_id, columns_
             "route_weight": st.column_config.NumberColumn("route_weight")},
         disabled=selected_df.columns.difference(["route_weight"]).tolist(),
         hide_index=True,
-        column_order=["configuration_name", "route_weight"],
+        column_order=["route_name", "route_weight"],
         use_container_width=True,
         key=f"selected_df_{mode_key}_{sector}_{product}",
     )
@@ -84,14 +90,72 @@ def edit_dataframe_selection_and_weighting(df_product, valid_config_id, columns_
 # Streamlit interface and data tools
 
 
-def _other_sectors_product(df):
+def _other_sectors_product(df_template=None):
     """
     Display configurations not belonging to the main sectors under 'Other sectors'.
 
     Returns:
     - dict: Mapping from sector_product string to edited dataframe.
     """
-    st.write("Under construction")
+    columns = [
+        "electricity_[gj/t]", "alternative_fuel_mixture_[gj/t]", "biomass_[gj/t]",
+        "biomass_waste_[gj/t]", "coal_[gj/t]", "coke_[gj/t]", "crude_oil_[gj/t]",
+        "hydrogen_[gj/t]", "methanol_[gj/t]", "ammonia_[gj/t]", "naphtha_[gj/t]",
+        "natural_gas_[gj/t]", "plastic_mix_[gj/t]", "alternative_fuel_mixture_[t/t]",
+        "biomass_[t/t]", "biomass_waste_[t/t]", "coal_[t/t]", "coke_[t/t]",
+        "crude_oil_[t/t]", "hydrogen_[t/t]", "methanol_[t/t]", "ammonia_[t/t]",
+        "naphtha_[t/t]", "natural_gas_[t/t]", "plastic_mix_[t/t]",
+        "co2_allowance_[eur/t]", "direct_emission_[tco2/t]", "total_emission_[tco2/t]",
+        "direct_emission_reduction_[%]", "total_emission_reduction_[%]", "captured_co2_[tco2/t]"
+    ]
+    columns_fixed = ["route_name", "product_name"]
+
+    with st.expander("Energy parameters", expanded=False):
+        columns_selected = st.pills(
+            "Select energy parameters to edit",
+            options=columns,
+            default=columns[0],
+            selection_mode="multi",
+            key="other_sectors_product_selection"
+        )
+    column_df = columns_fixed + columns_selected
+    if df_template is None:
+        df_template = pd.DataFrame(
+            columns=column_df,
+        )
+    else:
+        df_template = df_template[df_template["sector_name"]
+                                  == "Other sectors"].copy()
+        for col in column_df:
+            if col not in df_template.columns:
+                df_template[col] = np.nan
+        df_template = df_template[column_df]
+    # Enforce data types
+    for col in columns_fixed:
+        df_template[col] = df_template[col].astype(str)
+    for col in columns_selected:
+        df_template[col] = df_template[col].astype(float)
+
+    df_edit = st.data_editor(
+        df_template,
+        num_rows="dynamic",
+        column_config={
+            "route_weight": st.column_config.NumberColumn("route_weight")
+        },
+        hide_index=True,
+        column_order=column_df,
+        use_container_width=True,
+        key="other_sectors_product"
+    )
+    df_edit[[col for col in columns if col not in columns_selected]] = 0
+    df_edit["sector_name"] = "Other sectors"
+    df_edit["route_weight"] = 100
+
+    result_dict = {}
+    grouped = df_edit.groupby(["sector_name", "product_name"])
+    for (sector, product), group_df in grouped:
+        result_dict[f"{sector}_{product}"] = group_df
+    return result_dict
 
 
 def preconfigure_path(df, columns_to_show_selection):
@@ -105,27 +169,23 @@ def preconfigure_path(df, columns_to_show_selection):
         "Select an EU-MIX scenario", eumix_options, index=0)
     pathway_name = selected_mix
     if pathway_name in eumix_options:  # only for aidre_eu_mix
-        configuration_id_EUMIX_weight = eu_mix_configuration_id_weight(
+        df_upload = eu_mix_configuration_id_weight(
             pathway_name)
-    # Convert values to float & int
-    configuration_id_EUMIX_weight = {
-        int(k): float(v) for k, v in configuration_id_EUMIX_weight.items()
-    }
     # modified verification intialisation
     modified = False
     # List creation to displai tabs and configuration visualisation/modification
     sectors_list = []
-    # Ensure configuration_id_EUMIX_weight keys are treated as integers
-    valid_config_id = set(map(int, configuration_id_EUMIX_weight.keys()))
+
     # Filter and extract unique, sorted sector names
-    filtered_df = df[df["configuration_id"].isin(valid_config_id)]
+    filtered_df = df[df["route_name"].isin(
+        df_upload["route_name"])]
     unique_sectors = sorted(filtered_df["sector_name"].unique())
     if st.checkbox("Edit pathway"):
         sectors_list = unique_sectors.copy()
         sectors_list_plus_other = sectors_list + ["Other sectors"]
         selected_sectors = st.pills(
             "Select sector(s) to configure",
-            sectors_list,
+            sectors_list_plus_other,
             selection_mode="multi",
             default=sectors_list
         )
@@ -137,7 +197,7 @@ def preconfigure_path(df, columns_to_show_selection):
                 with tabs[i]:
                     if sector == "Other sectors":
                         dict_other = _other_sectors_product(
-                            df,
+
                         )
                         dict_routes_selected.update(dict_other)
                         continue
@@ -151,7 +211,7 @@ def preconfigure_path(df, columns_to_show_selection):
                                 & (df["product_name"] == product)
                             ].copy()
                             edited_selected_df_product, was_modified = edit_dataframe_selection_and_weighting(
-                                df_product, configuration_id_EUMIX_weight, columns_to_show_selection, sector, product, "eumix"
+                                df_product, columns_to_show_selection, sector, product, "eumix", df_upload
                             )
                             total_weight = edited_selected_df_product["route_weight"].sum(
                             )
@@ -173,11 +233,14 @@ def preconfigure_path(df, columns_to_show_selection):
                     (df["sector_name"] == sector)
                     & (df["product_name"] == product)
                 ].copy()
-                df_product["selected"] = df_product["configuration_id"].isin(
-                    valid_config_id)
+                df_product["selected"] = df_product["route_name"].isin(
+                    df_upload["route_name"])
+                df_upload_map = df_upload.set_index("route_name")[
+                    "route_weight"].to_dict()
+
                 df_product["route_weight"] = (
-                    df_product["configuration_id"].astype(int)
-                    .map(configuration_id_EUMIX_weight)
+                    df_product["route_name"]
+                    .map(df_upload_map)
                     .fillna(0)
                 )
                 total_weight = df_product["route_weight"].sum()
@@ -204,7 +267,7 @@ def create_path(df, columns_to_show_selection):
     # Add "Other sectors" option
     sectors_list_plus_other.append("Other sectors")
     selected_sectors = st.pills(
-        "Sector(s)", sectors_list, selection_mode="multi")
+        "Sector(s)", sectors_list_plus_other, selection_mode="multi")
     if len(selected_sectors) < 1:
         st.text("Please select at least 1 sector")
     else:
@@ -213,7 +276,7 @@ def create_path(df, columns_to_show_selection):
             with tabs[i]:
                 if sector == "Other sectors":
                     dict_other = _other_sectors_product(
-                        df)
+                    )
                     dict_routes_selected.update(dict_other)
                     continue
                 all_products = sorted(
@@ -230,7 +293,7 @@ def create_path(df, columns_to_show_selection):
                             "selected"] + cols].reset_index(drop=True)
                         # Use helper for editing selection and weighting
                         edited_selected_df_product, _ = edit_dataframe_selection_and_weighting(
-                            df_product, set(), columns_to_show_selection, sector, product, "custom"
+                            df_product, columns_to_show_selection, sector, product, "custom"
                         )
                         total_weight = edited_selected_df_product["route_weight"].sum(
                         )
@@ -239,16 +302,22 @@ def create_path(df, columns_to_show_selection):
                         else:
                             st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+
     all_empty = all(df.empty for df in dict_routes_selected.values())
 
     if all_empty:
         st.warning("Select at least one production route")
         return {}, pathway_name
-
     return dict_routes_selected, pathway_name
 
 
 def upload_path(df, columns_to_show_selection):
+    # Initialisiation list of sectors
+    sectors_list_all = ["Cement", "Chemical",
+                        "Fertilisers", "Glass", "Refineries", "Steel"]
+    sectors_list_plus_other = sectors_list_all.copy()
+    # Add "Other sectors" option
+    sectors_list_plus_other.append("Other sectors")
     # Initalisation of modifed
     modified = False
     # Dictionary to collect selected routes per sector-product
@@ -258,33 +327,19 @@ def upload_path(df, columns_to_show_selection):
         "Upload your pathway file here", type=["txt"]
     )
     pathway_name = "Upload file"
-    if uploaded_file:
-
-        configuration_id_EUMIX_weight, pathway_name = import_to_dict(
-            uploaded_file)
-
-        if configuration_id_EUMIX_weight:
-            # Convert values to float & int
-            configuration_id_EUMIX_weight = {
-                int(k): float(v) for k, v in configuration_id_EUMIX_weight.items()
-            }
-
-            # List creation to displai tabs and configuration visualisation/modification
+    if uploaded_file is not None:
+        pathway_name = uploaded_file.name.replace(
+            "ECM_Tool_", "").replace("_", " ").rsplit(".", 1)[0]
+        df_upload = import_to_dict(uploaded_file)
+        if not df_upload.empty:
+            # List creation to display tabs and configuration visualisation/modification
             sectors_list = []
-            # Ensure configuration_id_EUMIX_weight keys are treated as integers
-            valid_config_id = set(
-                map(int, configuration_id_EUMIX_weight.keys()))
-            # Filter and extract unique, sorted sector names
-            filtered_df = df[df["configuration_id"].isin(valid_config_id)]
-            unique_sectors = sorted(filtered_df["sector_name"].unique())
+            unique_sectors = sorted(df_upload["sector_name"].unique())
             if st.checkbox("Edit pathway:"):
                 for sector in unique_sectors:
                     sectors_list.append(sector)
-                sectors_list_plus_other = sectors_list.copy()
-                # Add "Other sectors" option
-                sectors_list_plus_other.append("Other sectors")
                 selected_sectors = st.pills(
-                    "Sector(s)", sectors_list, selection_mode="multi", default=sectors_list)
+                    "Sector(s)", sectors_list_plus_other, selection_mode="multi", default=sectors_list)
                 if len(selected_sectors) < 1:
                     st.warning("Please select at least 1 sector")
                 else:
@@ -293,7 +348,8 @@ def upload_path(df, columns_to_show_selection):
                         with tabs[i]:
                             if sector == "Other sectors":
                                 dict_other = _other_sectors_product(
-                                    df)
+                                    df_template=df_upload
+                                )
                                 dict_routes_selected.update(dict_other)
                                 continue
                             all_products = sorted(
@@ -307,7 +363,7 @@ def upload_path(df, columns_to_show_selection):
                                         & (df["product_name"] == product)
                                     ].copy()
                                     edited_selected_df_product, was_modified = edit_dataframe_selection_and_weighting(
-                                        df_product, configuration_id_EUMIX_weight, columns_to_show_selection, sector, product, "eumix"
+                                        df_product, columns_to_show_selection, sector, product, "eumix", df_upload
                                     )
                                     total_weight = edited_selected_df_product["route_weight"].sum(
                                     )
@@ -320,6 +376,15 @@ def upload_path(df, columns_to_show_selection):
                                         modified = True
             else:
                 for sector in unique_sectors:
+                    if sector == "Other sectors":
+                        df_upload_other = df_upload[df_upload["sector_name"]
+                                                    == "Other sectors"]
+                        dict_routes_other = {}
+                        for product in df_upload_other["product_name"].unique():
+
+                            dict_routes_other[f"{sector}_{product}"] = df_upload[df_upload["route_name"] == product]
+                        dict_routes_selected.update(dict_routes_other)
+                        continue
                     all_products = sorted(
                         df[df["sector_name"] == sector]["product_name"].unique()
                     )
@@ -329,11 +394,14 @@ def upload_path(df, columns_to_show_selection):
                             (df["sector_name"] == sector)
                             & (df["product_name"] == product)
                         ].copy()
-                        df_product["selected"] = df_product["configuration_id"].isin(
-                            valid_config_id)
+                        df_product["selected"] = df_product["route_name"].isin(
+                            df_upload["route_name"])
+                        df_upload_map = df_upload.set_index("route_name")[
+                            "route_weight"].to_dict()
+
                         df_product["route_weight"] = (
-                            df_product["configuration_id"].astype(int)
-                            .map(configuration_id_EUMIX_weight)
+                            df_product["route_name"]
+                            .map(df_upload_map)
                             .fillna(0)
                         )
                         total_weight = df_product["route_weight"].sum()
