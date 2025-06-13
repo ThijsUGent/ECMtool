@@ -93,22 +93,31 @@ def cluster_configuration():
 
 
 def _cluster_product_selection():
+    pathway_names = list(st.session_state["Pathway name"].keys())
+    keys = []
+    st.write(pathway_names)
     # Dictionary to collect selected site per sector-product
     dict_cluster_selected = {}
+    sectors_list_all = ["Cement", "Chemical",
+                        "Fertilisers", "Glass", "Refineries", "Steel"]
+    sectors_list_plus_other = sectors_list_all.copy()
+    # Add "Other sectors" option
+    sectors_list_plus_other.append("Other sectors")
     selected_sectors = st.pills(
-        "Sector(s)", sectors_list, selection_mode="multi", default=sectors_list)
-    if not selected_sectors:
-        st.warning("Please select at least one sector")
-    tabs = st.tabs(selected_sectors)
-    for i, sector in enumerate(selected_sectors):
-        with tabs[i]:
-            all_products = dict_product_by_sector[sector]
-            for product in all_products:
-                with st.expander(f"{sector} - {product}", expanded=False):
-                    df = _get_df_site_parameters(product)
-                    df["product"] = product
-                    df["sector"] = sector
-                    dict_cluster_selected[f"{sector}_{product}"] = df
+        "Sector(s)", sectors_list_plus_other, selection_mode="multi", default=sectors_list)
+    if len(selected_sectors) < 1:
+        st.warning("Please select at least 1 sector")
+    else:
+        tabs = st.tabs(selected_sectors)
+        for i, sector in enumerate(selected_sectors):
+            with tabs[i]:
+                all_products = dict_product_by_sector[sector]
+                for product in all_products:
+                    with st.expander(f"{sector} - {product}", expanded=False):
+                        df = _get_df_site_parameters(product)
+                        df["product"] = product
+                        df["sector"] = sector
+                        dict_cluster_selected[f"{sector}_{product}"] = df
 
     all_empty = all(df.empty for df in dict_cluster_selected.values())
 
@@ -121,9 +130,6 @@ def _cluster_product_selection():
 
 
 def _get_df_site_parameters(product):
-    import pandas as pd
-    import streamlit as st
-
     # --- Define the template DataFrame ---
     df_template = pd.DataFrame({
         'site': pd.Series(dtype='str'),

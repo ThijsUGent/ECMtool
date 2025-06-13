@@ -98,7 +98,6 @@ def select_page():
                     else:
                         st.session_state["Pathway name"][pathway_name] = dict_routes_selected
                         st.success(f"Pathway '{pathway_name}' saved.")
-
                 # Download button (triggers logic only when clicked)
                 if st.button("Download pathway"):
                     if pathway_name.strip() == "":

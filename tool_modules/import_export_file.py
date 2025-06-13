@@ -26,7 +26,7 @@ def import_to_dict(uploaded_file):
             "The uploaded file is not in the correct format. Please upload the lastest format from the tool")
         return pd.DataFrame()
 
-    required_columns = {"route_weight", "configuration_name"}
+    required_columns = {"route_weight", "route_name"}
     if not required_columns.issubset(df.columns):
         st.error("The uploaded file does not contain the required format.")
         return pd.DataFrame()

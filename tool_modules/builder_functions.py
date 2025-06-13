@@ -42,6 +42,7 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
             .map(df_upload_map)
             .fillna(0)
         )
+
     else:
         df_product["selected"] = False
         df_product["route_weight"] = None
@@ -89,7 +90,7 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
 # Streamlit interface and data tools
 
 
-def _other_sectors_product():
+def _other_sectors_product(df_template=None):
     """
     Display configurations not belonging to the main sectors under 'Other sectors'.
 
@@ -120,10 +121,15 @@ def _other_sectors_product():
             selection_mode="multi",
             key="other_sectors_product_selection"
         )
-
-    df_template = pd.DataFrame(
-        columns=columns_fixed + columns_selected,
-    )
+    columns = columns_fixed + columns_selected
+    if df_template is None:
+        df_template = pd.DataFrame(
+            columns=columns,
+        )
+    else:
+        df_template = df_template[df_template["sector_name"]
+                                  == "Other sectors"]
+        df_template = df_template[columns]
     # Enforce data types
     for col in columns_fixed:
         df_template[col] = df_template[col].astype(str)
@@ -136,10 +142,8 @@ def _other_sectors_product():
         column_config={
             "route_weight": st.column_config.NumberColumn("route_weight")
         },
-        disabled=df_template.columns.difference(
-            columns_fixed + columns).tolist(),
         hide_index=True,
-        column_order=columns_fixed + columns,
+        column_order=columns,
         use_container_width=True,
         key="other_sectors_product"
     )
@@ -304,11 +308,16 @@ def create_path(df, columns_to_show_selection):
     if all_empty:
         st.warning("Select at least one production route")
         return {}, pathway_name
-    st.write(dict_routes_selected)
     return dict_routes_selected, pathway_name
 
 
 def upload_path(df, columns_to_show_selection):
+    # Initialisiation list of sectors
+    sectors_list_all = ["Cement", "Chemical",
+                        "Fertilisers", "Glass", "Refineries", "Steel"]
+    sectors_list_plus_other = sectors_list_all.copy()
+    # Add "Other sectors" option
+    sectors_list_plus_other.append("Other sectors")
     # Initalisation of modifed
     modified = False
     # Dictionary to collect selected routes per sector-product
@@ -325,18 +334,10 @@ def upload_path(df, columns_to_show_selection):
         if not df_upload.empty:
             # List creation to display tabs and configuration visualisation/modification
             sectors_list = []
-            # Filter and extract unique, sorted sector names
-            filtered_df = df[df["route_name"].isin(
-                df_upload["route_name"])]
-            unique_sectors = sorted(filtered_df["sector_name"].unique())
+            unique_sectors = sorted(df_upload["sector_name"].unique())
             if st.checkbox("Edit pathway:"):
                 for sector in unique_sectors:
                     sectors_list.append(sector)
-                sectors_list_all = ["Cement", "Chemical",
-                                    "Fertilisers", "Glass", "Refineries", "Steel"]
-                sectors_list_plus_other = sectors_list_all.copy()
-                # Add "Other sectors" option
-                sectors_list_plus_other.append("Other sectors")
                 selected_sectors = st.pills(
                     "Sector(s)", sectors_list_plus_other, selection_mode="multi", default=sectors_list)
                 if len(selected_sectors) < 1:
@@ -347,6 +348,7 @@ def upload_path(df, columns_to_show_selection):
                         with tabs[i]:
                             if sector == "Other sectors":
                                 dict_other = _other_sectors_product(
+                                    df_template=df_upload
                                 )
                                 dict_routes_selected.update(dict_other)
                                 continue
@@ -374,6 +376,15 @@ def upload_path(df, columns_to_show_selection):
                                         modified = True
             else:
                 for sector in unique_sectors:
+                    if sector == "Other sectors":
+                        df_upload_other = df_upload[df_upload["sector_name"]
+                                                    == "Other sectors"]
+                        dict_routes_other = {}
+                        for product in df_upload_other["product_name"].unique():
+
+                            dict_routes_other[f"{sector}_{product}"] = df_upload[df_upload["route_name"] == product]
+                        dict_routes_selected.update(dict_routes_other)
+                        continue
                     all_products = sorted(
                         df[df["sector_name"] == sector]["product_name"].unique()
                     )
