@@ -217,50 +217,70 @@ def _energy_convert(value, unit, elec=False):
             return round(value), "GJ"
 
 
-def _tree_map(df, cluster, pathway, column):
+def _tree_map(df: pd.DataFrame, cluster: str, pathway: str, column: str):
     """
     Create a treemap visualization of energy use breakdown.
+
     Parameters:
         df (pd.DataFrame): DataFrame containing energy use data.
         cluster (str): Name of the cluster.
         pathway (str): Name of the pathway.
+        column (str): Column name used in the Streamlit key.
     """
-
     if df is not None and not df.empty:
-        energy_cols = [col for col in df.columns if "[" in col]
-        rename_map = {col: " ".join(
-            col.split("_")[:-1]) for col in energy_cols}
-        df = df.rename(columns=rename_map)
-        # Select relevant columns
-        columns_plot = [
-            col for col in df.columns
-            if any(col.startswith(feed.split("_")[0]) for feed in type_ener_feed)
-        ]
+        # Identify energy-related columns
+        energy_cols = [col for col in df.columns if any(
+            col.startswith(feed) for feed in type_ener_feed)]
 
-        # Extract the single row of interest
-        row = df.iloc[0]
-        if columns_plot == ["electricity"]:
-            elec = True
-        else:
-            elec = False
-        # Prepare long-form dataframe for plotting
+        # Clean column names (remove suffix like "_input", "_output")
+        rename_map = {}
+        renamed_cols = []
+
+        for col in energy_cols:
+            if "_" in col:
+                new_name = " ".join(col.split("_")[:-1])
+            else:
+                new_name = col
+            rename_map[col] = new_name
+            renamed_cols.append(new_name)
+
+        df = df.rename(columns=rename_map)
+
+        columns_plot = [col for col in df.columns if col in renamed_cols]
+
+        # Sum all rows for the selected columns
+        total_values = df[columns_plot].sum()
+
+        # Create a new DataFrame with one row — the sums
+        df_sum = pd.DataFrame([total_values], columns=columns_plot)
+
+        if not columns_plot:
+            st.warning("No matching energy columns found.")
+            return
+
+        # Determine if electricity is the only energy source
+        elec = (columns_plot == ["electricity"])
+
+        # Extract the relevant row
+        row = df_sum.iloc[0]
+
+        # Prepare long-form DataFrame for plotting
         df_long = pd.DataFrame({
             "energy_source": columns_plot,
             "value": [row[col] for col in columns_plot],
-            # fallback colour, use cleaned names for color_map lookup
-            "color_value": [color_map.get(rename_map.get(col, col), "#cccccc") for col in columns_plot],
+            "color_value": [color_map.get(col, "#cccccc") for col in columns_plot],
         })
 
-        # Add cleaned label and unit
+        # Clean up label and assign unit
         df_long["label"] = df_long["energy_source"].str.replace(
             r"\[.*?\]$", "", regex=True).str.replace("_", " ")
-        df_long["unit"] = row["unit"] if "unit" in row else ""
+        df_long["unit"] = row.get("unit", "")
 
-        # Total energy calculation and conversion
+        # Convert and calculate total energy
         total_energy = df_long["value"].sum()
         unit = df_long["unit"].iloc[0]
         total_energy, unit_real = _energy_convert(total_energy, unit, elec)
-        # Create treemap
+        # Plot treemap
         fig = px.treemap(
             df_long,
             path=["label"],
@@ -272,7 +292,12 @@ def _tree_map(df, cluster, pathway, column):
         )
 
         fig.update_layout(
-            title_text=f"Energy Use {cluster} <br><sub>Pathway : {pathway}<sub> <br> Total energy per annum: {total_energy} {unit_real}")
+            title_text=(
+                f"Energy Use {cluster} <br>"
+                f"<sub>Pathway: {pathway}</sub> <br>"
+                f"Total energy per annum: {total_energy} {unit_real}"
+            )
+        )
 
         st.plotly_chart(fig, key=f"{cluster}_{pathway}_{column}")
 
