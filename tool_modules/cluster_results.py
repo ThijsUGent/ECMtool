@@ -132,7 +132,6 @@ def cluster_results():
         st.markdown("**Edit utilisation rate per sector**  \n*Default: 100%*")
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
-            st.write(sector_utilization)
 
         st.divider()
         chart = st.radio("Select chart type", ["Sankey Diagram", "Treemap"])
