@@ -92,7 +92,7 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
 
 def _other_sectors_product(df_template=None):
     """
-    Display configurations not belonging to the main sectors under 'Other sectors'.
+    Display configurations not belonging to the main sectors under 'No-AIDRES products'.
 
     Returns:
     - dict: Mapping from sector_product string to edited dataframe.
@@ -125,7 +125,7 @@ def _other_sectors_product(df_template=None):
         )
     else:
         df_template = df_template[df_template["sector_name"]
-                                  == "Other sectors"].copy()
+                                  == "No-AIDRES products"].copy()
         for col in column_df:
             if col not in df_template.columns:
                 df_template[col] = np.nan
@@ -148,7 +148,8 @@ def _other_sectors_product(df_template=None):
         key="other_sectors_product"
     )
     df_edit[[col for col in columns if col not in columns_selected]] = 0
-    df_edit["sector_name"] = "Other sectors"
+    df_edit["sector_name"] = "No-AIDRES products"
+    df_edit["energy_feedstock"] = " "
     df_edit["route_weight"] = 100
 
     result_dict = {}
@@ -182,7 +183,7 @@ def preconfigure_path(df, columns_to_show_selection):
     unique_sectors = sorted(filtered_df["sector_name"].unique())
     if st.checkbox("Edit pathway"):
         sectors_list = unique_sectors.copy()
-        sectors_list_plus_other = sectors_list + ["Other sectors"]
+        sectors_list_plus_other = sectors_list + ["No-AIDRES products"]
         selected_sectors = st.pills(
             "Select sector(s) to configure",
             sectors_list_plus_other,
@@ -195,7 +196,7 @@ def preconfigure_path(df, columns_to_show_selection):
             tabs = st.tabs(selected_sectors)
             for i, sector in enumerate(selected_sectors):
                 with tabs[i]:
-                    if sector == "Other sectors":
+                    if sector == "No-AIDRES products":
                         dict_other = _other_sectors_product(
 
                         )
@@ -264,8 +265,8 @@ def create_path(df, columns_to_show_selection):
     for sector in sorted(df["sector_name"].unique()):
         sectors_list.append(sector)
     sectors_list_plus_other = sectors_list.copy()
-    # Add "Other sectors" option
-    sectors_list_plus_other.append("Other sectors")
+    # Add "No-AIDRES products" option
+    sectors_list_plus_other.append("No-AIDRES products")
     selected_sectors = st.pills(
         "Sector(s)", sectors_list_plus_other, selection_mode="multi")
     if len(selected_sectors) < 1:
@@ -274,7 +275,7 @@ def create_path(df, columns_to_show_selection):
         tabs = st.tabs(selected_sectors)
         for i, sector in enumerate(selected_sectors):
             with tabs[i]:
-                if sector == "Other sectors":
+                if sector == "No-AIDRES products":
                     dict_other = _other_sectors_product(
                     )
                     dict_routes_selected.update(dict_other)
@@ -316,8 +317,8 @@ def upload_path(df, columns_to_show_selection):
     sectors_list_all = ["Cement", "Chemical",
                         "Fertilisers", "Glass", "Refineries", "Steel"]
     sectors_list_plus_other = sectors_list_all.copy()
-    # Add "Other sectors" option
-    sectors_list_plus_other.append("Other sectors")
+    # Add "No-AIDRES products" option
+    sectors_list_plus_other.append("No-AIDRES products")
     # Initalisation of modifed
     modified = False
     # Dictionary to collect selected routes per sector-product
@@ -346,7 +347,7 @@ def upload_path(df, columns_to_show_selection):
                     tabs = st.tabs(selected_sectors)
                     for i, sector in enumerate(selected_sectors):
                         with tabs[i]:
-                            if sector == "Other sectors":
+                            if sector == "No-AIDRES products":
                                 dict_other = _other_sectors_product(
                                     df_template=df_upload
                                 )
@@ -376,9 +377,9 @@ def upload_path(df, columns_to_show_selection):
                                         modified = True
             else:
                 for sector in unique_sectors:
-                    if sector == "Other sectors":
+                    if sector == "No-AIDRES products":
                         df_upload_other = df_upload[df_upload["sector_name"]
-                                                    == "Other sectors"]
+                                                    == "No-AIDRES products"]
                         dict_routes_other = {}
                         for product in df_upload_other["product_name"].unique():
 

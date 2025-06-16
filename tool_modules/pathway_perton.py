@@ -6,7 +6,7 @@ import numpy as np
 
 
 columns_perton_and_weight = [
-    "configuration_name",
+    "route_name",
     "route_weight",
     "electricity_[mwh/t]",
     "electricity_[gj/t]",
@@ -47,7 +47,7 @@ columns_perton_and_weight = [
     "captured_co2_[tco2/t]",
 ]
 columns_perton = [
-    "configuration_name",
+    "route_name",
     "electricity_[mwh/t]",
     "electricity_[gj/t]",
     "alternative_fuel_mixture_[gj/t]",
@@ -148,7 +148,7 @@ def perton_page():
 
     # Initialisation of all sectors
     sectors_list = ["Chemical", "Cement",
-                    "Refineries", "Fertilisers", "Steel", "Glass"]
+                    "Refineries", "Fertilisers", "Steel", "Glass", "No-AIDRES products"]
 
     type_ener_feed_gj = [item for item in type_ener_feed if "[gj/t]" in item]
     type_ener_feed_t = [item for item in type_ener_feed if "[t/t]" in item]
@@ -414,7 +414,7 @@ def _diplay_chart_per_route(selected_ener_feed, pathway, sector, unit):
 
         # Melt the dataframe to long format for stacked bar chart
         df_melted = df_product.melt(
-            id_vars=["configuration_name"],
+            id_vars=["route_name"],
             value_vars=columns,
             var_name="type",
             value_name="value"
@@ -437,13 +437,13 @@ def _diplay_chart_per_route(selected_ener_feed, pathway, sector, unit):
         fig_combined = px.bar(
             df_combined,
             x="value",
-            y="configuration_name",
+            y="route_name",
             color="type",
             color_discrete_map=color_map_combined,
             orientation="h",
             title=f"{unit} for {product_name} - {pathway} ",
             labels={"value": f" {unit}",
-                    "configuration_name": "Configuration", "type": "Type"}
+                    "route_name": "Configuration", "type": "Type"}
         )
 
         st.plotly_chart(fig_combined, use_container_width=True,

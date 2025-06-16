@@ -98,7 +98,7 @@ def _cluster_product_selection():
 
     sectors_list_all = ["Cement", "Chemical",
                         "Fertilisers", "Glass", "Refineries", "Steel"]
-    sectors_list_plus_other = sectors_list_all + ["Other sectors"]
+    sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
 
     selected_sectors = st.pills(
         "Sector(s)", sectors_list_plus_other, selection_mode="multi"
@@ -112,13 +112,13 @@ def _cluster_product_selection():
 
     for i, sector in enumerate(selected_sectors):
         with tabs[i]:
-            if sector == "Other sectors":
+            if sector == "No-AIDRES products":
                 other_products = []
                 if st.session_state.get("Pathway name"):
                     for name, pathway in st.session_state["Pathway name"].items():
                         for sector_product in pathway.keys():
                             split_parts = sector_product.split("_")
-                            if split_parts[0] == "Other sectors":
+                            if split_parts[0] == "No-AIDRES products":
                                 other_products.append(split_parts[-1])
                     all_products = other_products
                 else:
@@ -176,7 +176,7 @@ def _get_df_site_parameters(product):
 def upload_cluster():
     sectors_list_all = ["Cement", "Chemical",
                         "Fertilisers", "Glass", "Refineries", "Steel"]
-    sectors_list_plus_other = sectors_list_all + ["Other sectors"]
+    sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
 
     # Initialization
     df_cluster = pd.DataFrame()
@@ -199,7 +199,7 @@ def upload_cluster():
             tabs = st.tabs(sectors_list_plus_other)
             for i, sector in enumerate(sectors_list_plus_other):
                 with tabs[i]:
-                    if sector == "Other sectors":
+                    if sector == "No-AIDRES products":
                         other_products = []
                         for product in df[df["sector"] == sector]["product"].unique():
                             other_products.append(product)
@@ -209,7 +209,7 @@ def upload_cluster():
                             for name, pathway in st.session_state["Pathway name"].items():
                                 for sector_product in pathway.keys():
                                     split_parts = sector_product.split("_")
-                                    if split_parts[0] == "Other sectors":
+                                    if split_parts[0] == "No-AIDRES products":
                                         all_possible_products.add(
                                             split_parts[-1])
                         rest_all_products = list(

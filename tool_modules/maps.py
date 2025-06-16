@@ -488,7 +488,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     for key in list_keys:
         sectors_list.append(key.split("_")[0])
     unique_sectors = set(sectors_list)
-    if unique_sectors == {"Other sectors"}:
+    if unique_sectors == {"No-AIDRES products"}:
 
         return None
 

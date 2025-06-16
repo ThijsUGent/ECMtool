@@ -12,7 +12,7 @@ def view_page():
 
     # Initialisation of all sectors
     sectors_all_list = ["Chemical", "Cement",
-                        "Refineries", "Fertilisers", "Steel", "Glass"]
+                        "Refineries", "Fertilisers", "Steel", "Glass", "No-AIDRES products"]
 
     # Select number of pathway to display
     pathway_names = list(st.session_state["Pathway name"].keys())
@@ -48,7 +48,7 @@ def _plot_configurations(df, selected_pathway, product, sector, col):
 
         # Sort configurations to maintain consistent order
         df_sorted = df.sort_values(
-            by=["configuration_name", "energy_feedstock"])
+            by=["route_name", "energy_feedstock"])
 
         # Create a colour map for energy_feedstock types
         energy_feedstock_types = df_sorted["energy_feedstock"].unique()
@@ -67,7 +67,7 @@ def _plot_configurations(df, selected_pathway, product, sector, col):
             color="energy_feedstock",
             color_discrete_map=colour_map,
             orientation="h",
-            hover_data=["route_weight", "configuration_name"]
+            hover_data=["route_weight", "route_name"]
         )
 
         # add a horizontal line manually
