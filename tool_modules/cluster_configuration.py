@@ -174,6 +174,10 @@ def _get_df_site_parameters(product):
 
 
 def upload_cluster():
+    sectors_list_all = ["Cement", "Chemical",
+                        "Fertilisers", "Glass", "Refineries", "Steel"]
+    sectors_list_plus_other = sectors_list_all + ["Other sectors"]
+
     # Initialization
     df_cluster = pd.DataFrame()
     modified = False
@@ -192,10 +196,17 @@ def upload_cluster():
         df = pd.read_csv(uploaded_file, sep=",")
         # Try to infer sector and product columns, or fallback to template
         if set(['sector', 'product']).issubset(df.columns):
-            tabs = st.tabs(sectors_list)
-            for i, sector in enumerate(sectors_list):
+            tabs = st.tabs(sectors_list_plus_other)
+            for i, sector in enumerate(sectors_list_plus_other):
                 with tabs[i]:
-                    all_products = dict_product_by_sector[sector]
+                    if sector == "Other sectors":
+                        other_products = []
+                        for product in df["product"].unique():
+                            other_products.append(product)
+                        all_products = other_products
+
+                    else:
+                        all_products = dict_product_by_sector[sector]
                     for product in all_products:
                         with st.expander(f"{sector} - {product}", expanded=False):
                             df_product = df[(df['sector'] == sector) & (
