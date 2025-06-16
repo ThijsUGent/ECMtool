@@ -91,7 +91,7 @@ def main():
 
     elif main_section == "Cluster - microscale":
         cluster_subsection = st.sidebar.radio(
-            "Select a page", ["Cluster configuration", "Cluster results", "Production by cluster"], key="cluster_sub"
+            "Select a page", ["Cluster configuration", "Cluster results"], key="cluster_sub"
         )
         if cluster_subsection == "Cluster configuration":
             cluster_configuration()
