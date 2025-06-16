@@ -201,9 +201,25 @@ def upload_cluster():
                 with tabs[i]:
                     if sector == "Other sectors":
                         other_products = []
-                        for product in df["product"].unique():
+                        for product in df[df["sector"] == sector]["product"].unique():
                             other_products.append(product)
                         all_products = other_products
+                        if st.session_state.get("Pathway name"):
+                            all_possible_products = set()
+                            for name, pathway in st.session_state["Pathway name"].items():
+                                for sector_product in pathway.keys():
+                                    split_parts = sector_product.split("_")
+                                    if split_parts[0] == "Other sectors":
+                                        all_possible_products.add(
+                                            split_parts[-1])
+                        rest_all_products = list(
+                            set(all_possible_products) - set(all_products))
+                        if rest_all_products:
+                            product_selected = st.multiselect(
+                                "Select a product included in pathways", rest_all_products
+                            )
+                            if product_selected and product_selected not in all_products:
+                                all_products.extend(product_selected)
 
                     else:
                         all_products = dict_product_by_sector[sector]
