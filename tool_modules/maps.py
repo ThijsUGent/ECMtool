@@ -245,14 +245,17 @@ def map_per_pathway():
                                                                   ["aidres_sector_name"].isin(sector_seleted)]
 
         if map_choice == "cluster centroid":
+            df_selected_site = None
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
-            selected = _mapping_chart_per_ener_feed_cluster(
+            df_selected = _mapping_chart_per_ener_feed_cluster(
                 gdf_clustered_centroid, color_map, unit)
         if map_choice == "site":
-            selected = _mapping_chart_per_ener_feed_sites(
+            df_selected = None
+            df_selected_site = _mapping_chart_per_ener_feed_sites(
                 dict_gdf_clustered[pathway])
-        df_selected = _clean_seleted_to_df(selected)
+        if df_selected_site is not None:
+            _chart_site(df_selected_site)
 
         if df_selected is not None:
             chart = st.radio("Select an option ", ["Treemap",
@@ -288,17 +291,8 @@ def map_per_pathway():
                     )
 
 
-def _clean_seleted_to_df(selected):
-    df = None
-    if selected and "objects" in selected:
-        cluster_objs = selected["objects"].get("cluster", [])
-        if cluster_objs:
-            selected_obj = cluster_objs[0]  # First selected item
-
-            # Optionally convert to DataFrame
-            import pandas as pd
-            df = pd.DataFrame([selected_obj])
-    return df
+def _chart_site(df):
+    st.write(df)
 
 
 def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
@@ -594,7 +588,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
 
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
-    # --- Data Preparation ---
+    # --- Prepare Data ---
     type_ener_feed = list(color_map.keys())
     energy_cols = [col for col in gdf.columns if "[" in col]
     rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
@@ -605,10 +599,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     if (gdf[energy_cols].sum(axis=1) == 0).all():
         return st.warning("Select feedstock(s) or energy carrier(s)")
-    if energy_cols == ["electricity"]:
-        elec = True
-    else:
-        elec = False
+    elec = energy_cols == ["electricity"]
 
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf = gdf[gdf["total_energy"] > 0].copy()
@@ -618,7 +609,10 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
     gdf["lat"] = gdf.geometry.y
     gdf["radius"] = _get_radius(gdf)
 
-    # --- Pie Chart SVG as Icon ---
+    def polar_to_cartesian(cx, cy, r, angle_deg):
+        angle_rad = math.radians(angle_deg)
+        return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
+
     def generate_pie_svg_base64(row):
         values = row[energy_cols]
         segments = [(col, val)
@@ -627,20 +621,16 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
             return ""
 
         total = sum(val for _, val in segments)
-        start_angle = 0
         cx, cy, r = 50, 50, 50
         paths = []
 
         if len(segments) == 1:
-            # Draw full circle
             col, _ = segments[0]
             colour = color_map.get(col, "#000000")
             paths.append(
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{colour}" />')
         else:
-            total = sum(val for _, val in segments)
             start_angle = 0
-
             for col, val in segments:
                 pct = val / total
                 end_angle = start_angle + pct * 360
@@ -648,7 +638,6 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
                 x2, y2 = polar_to_cartesian(cx, cy, r, end_angle)
                 large_arc_flag = 1 if end_angle - start_angle > 180 else 0
                 colour = color_map.get(col, "#000000")
-
                 d = f"M {cx},{cy} L {x1},{y1} A {r},{r} 0 {large_arc_flag} 1 {x2},{y2} Z"
                 paths.append(f'<path d="{d}" fill="{colour}" />')
                 start_angle = end_angle
@@ -657,16 +646,41 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
         return f"data:image/svg+xml;base64,{b64}"
 
-    def polar_to_cartesian(cx, cy, r, angle_deg):
-        angle_rad = math.radians(angle_deg)
-        return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
-
     gdf["icon_url"] = gdf.apply(generate_pie_svg_base64, axis=1)
 
-    # --- Icon Layer ---
-    icon_data = gdf[["lon", "lat", "icon_url", "total_energy",
-                     "total_energy_rounded", "unit", "radius"]].copy()
+    def build_total_html(row):
+        total_formatted, unit_formatted = _energy_convert(
+            row['total_energy_rounded'], row['unit'], elec)
+        return f"{total_formatted} {unit_formatted}"
 
+    gdf["total_html"] = gdf.apply(build_total_html, axis=1)
+
+    def generate_pie_legend(row):
+        values = row[energy_cols]
+        segments = [(col, val)
+                    for col, val in zip(energy_cols, values) if val > 0]
+        if not segments:
+            return ""
+        total = sum(val for _, val in segments)
+        legend_rows = []
+        start = 0
+        for col, val in segments:
+            pct = val / total * 100
+            end = start + pct
+            colour = color_map.get(col, "#000000")
+            legend_rows.append(f"""
+                <div style="display: flex; align-items: center; margin-bottom: 2px;">
+                    <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
+                    <span style="font-size: 11px; color: white;">{col}</span>
+                </div>
+            """)
+            start = end
+        return "".join(legend_rows)
+
+    gdf["pie_html"] = gdf.apply(generate_pie_legend, axis=1)
+
+    # Prepare icon data with embedded metadata
+    icon_data = gdf.copy()
     icon_data["icon"] = icon_data.apply(lambda row: {
         "url": row["icon_url"],
         "width": 100,
@@ -676,83 +690,17 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
 
     icon_layer = pdk.Layer(
         "IconLayer",
-        id='pie_chart',
+        id='pie_chart_icons',
         data=icon_data,
         get_icon="icon",
+        get_position=["lon", "lat"],
         get_size="radius",
         size_scale=0.002,
-        get_position=["lon", "lat"],
-        pickable=False
+        pickable=True,  # important for selection
     )
-
-    # --- Pie Tooltip HTML ---
-    def generate_pie_legend(row):
-        values = row[energy_cols]
-        segments = [(col, val)
-                    for col, val in zip(energy_cols, values) if val > 0]
-        if not segments:
-            return ""
-
-        total = sum(val for _, val in segments)
-        gradient_parts = []
-        legend_rows = []
-        start = 0
-
-        for col, val in segments:
-            pct = val / total * 100
-            end = start + pct
-            colour = color_map.get(col, "#000000")
-            gradient_parts.append(f"{colour} {start:.1f}% {end:.1f}%")
-            legend_rows.append(f"""
-                <div style="display: flex; align-items: center; margin-bottom: 2px;">
-                    <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
-                    <span style="font-size: 11px; color: white;">{col}</span>
-                </div>
-            """)
-            start = end
-
-        legend_html = "".join(legend_rows)
-        return f"""
-        <div style="display: flex; flex-direction: row; gap: 10px; align-items: flex-start;">
-            <div style="width: 80px; height: 80px; border-radius: 50%; flex-shrink: 0;"></div>
-            <div style="display: flex; flex-direction: column;">{legend_html}</div>
-        </div>
-        """
-
-    gdf["pie_html"] = gdf.apply(generate_pie_legend, axis=1)
-
-    def build_total_html(row):
-        total_formatted, unit_formatted = _energy_convert(
-            row['total_energy_rounded'], row['unit'], elec)
-        return f"{total_formatted} {unit_formatted}"
-
-    # Apply the function to your GeoDataFrame
-    gdf['total_html'] = gdf.apply(build_total_html, axis=1)
-
-    # --- Point Layer (Selectable) ---
-    point_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=gdf,
-        id="cluster",
-        get_position="[lon, lat]",
-        get_radius=5000,
-        pickable=True,
-        auto_highlight=False,
-        opacity=0.001
-    )
-
-    # --- Deck Setup ---
-    view_state = pdk.ViewState(
-        latitude=gdf["lat"].mean(),
-        longitude=gdf["lon"].mean(),
-        zoom=5,
-        pitch=0.1
-    )
-
-    # First, define a function that will return the formatted HTML string per row
 
     tooltip = {
-        "html": "<b>Total energy:</b> {total_html} <b> {pie_html}",
+        "html": "<b>Total energy:</b> {total_html}<br/>{pie_html}",
         "style": {
             "backgroundColor": "rgba(0,0,0,0.7)",
             "color": "white",
@@ -762,20 +710,43 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit):
         }
     }
 
+    view_state = pdk.ViewState(
+        latitude=gdf["lat"].mean(),
+        longitude=gdf["lon"].mean(),
+        zoom=5
+    )
+
     deck = pdk.Deck(
-        layers=[icon_layer, point_layer],
+        layers=[icon_layer],
         initial_view_state=view_state,
         tooltip=tooltip,
         map_style=None
     )
 
     event = st.pydeck_chart(
-        deck, selection_mode="single-object",  on_select="rerun",)
-    return event.selection
+        deck,
+        selection_mode="single-object",
+        on_select="rerun"
+    )
+
+    selected = event.selection
+
+    df = None
+    if selected and "objects" in selected:
+        cluster_objs = selected["objects"].get("pie_chart_icons", [])
+        if cluster_objs:
+            selected_obj = cluster_objs[0]  # First selected item
+            df = pd.DataFrame([selected_obj])
+    return df
 
 
 def _mapping_chart_per_ener_feed_sites(gdf):
+    import matplotlib.pyplot as plt
+    import base64
+    import io
+    from PIL import Image, ImageDraw
 
+    # --- Preprocessing ---
     type_ener_feed = list(color_map.keys())
     energy_cols = [col for col in gdf.columns if "[" in col]
     rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
@@ -786,68 +757,37 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
     if (gdf[energy_cols].sum(axis=1) == 0).all():
         return st.warning("Select feedstock(s) or energy carrier(s)")
-    if energy_cols == ["electricity"]:
-        elec = True
-    else:
-        elec = False
+    elec = energy_cols == ["electricity"]
 
-    # Extract latitude and longitude
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
-    # Prepare gdf
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf["radius"] = _get_radius(gdf)
 
-    unique_clusters = sorted(gdf["cluster"].unique())
-    n_clusters = len(unique_clusters)
-
-    # Define your base colours (looped every N)
+    # --- Cluster colouring ---
     base_cmap = plt.get_cmap("tab20")
-    max_colors = base_cmap.N  # = 20 for tab20
-
-    # Get unique clusters and sort
+    max_colors = base_cmap.N
     unique_clusters = sorted(gdf["cluster"].unique())
+    base_colors_rgb = [[int(255 * c) for c in base_cmap(i)[:3]]
+                       for i in range(max_colors)]
 
-    # Build RGB list from tab20 (or custom)
-    base_colors_rgb = [
-        [int(255 * c) for c in base_cmap(i)[:3]]
-        for i in range(max_colors)
-    ]
-
-    # Map clusters cyclically
-    cluster_color_map = {}
-    for idx, cluster in enumerate(unique_clusters):
-        if cluster == -1:
-            cluster_color_map[cluster] = [0, 0, 0]  # black for noise
-        else:
-            color_idx = idx % max_colors
-            cluster_color_map[cluster] = base_colors_rgb[color_idx]
-
-    # Assign to gdf
+    cluster_color_map = {
+        cluster: [0, 0, 0] if cluster == -
+        1 else base_colors_rgb[idx % max_colors]
+        for idx, cluster in enumerate(unique_clusters)
+    }
     gdf["color"] = gdf["cluster"].map(cluster_color_map)
 
     def generate_base64_icon_from_color_pil(rgb, size=128):
-        """
-        Generate a colored circle icon as base64 PNG from an RGB list using PIL.
-        Much faster than matplotlib.
-        """
-        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))  # transparent bg
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        # Draw filled circle
         draw.ellipse([(0, 0), (size - 1, size - 1)], fill=tuple(rgb) + (255,))
-
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()
 
-    # Assign to gdf
-    gdf["color"] = gdf["cluster"].map(cluster_color_map)
-
-    # Generate icons fast with PIL
     gdf["icon_base64"] = gdf["color"].apply(
         generate_base64_icon_from_color_pil)
-
-    # Build PyDeck icon data dict
     gdf["icon_data"] = gdf["icon_base64"].apply(lambda b64: {
         "url": f"data:image/png;base64,{b64}",
         "width": 128,
@@ -855,53 +795,46 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         "anchorY": 128,
     })
 
-    # # Pydeck layer with get_fill_color from the "color" column
-    # point_layer = pdk.Layer(
-    #     "ScatterplotLayer",
-    #     data=gdf,
-    #     id="sites",
-    #     get_position='[lon, lat]',
-    #     get_radius=0.4e4,
-    #     pickable=True,
-    #     get_fill_color="color",
-    #     auto_highlight=True,
-    #     opacity=0.8,
-    #     stroked=True,
-    #     get_line_color=[0, 0, 0],
-    #     line_width_min_pixels=1,
-    #     radius_scale=10,
-    # )
-
+    # --- Icon Layer (clickable) ---
     icon_layer = pdk.Layer(
         "IconLayer",
+        # This ID will be used in event.selection["objects"]["site_icons"]
+        id="site_icons",
         data=gdf,
         get_icon="icon_data",
         get_position='[lon, lat]',
         get_size="radius",
-        size_scale=0.0007,  # base size, will scale with sizeScale
-        pickable=False
+        size_scale=0.0007,
+        pickable=True
     )
 
     view_state = pdk.ViewState(
-        latitude=gdf['lat'].mean(),
-        longitude=gdf['lon'].mean(),
-        zoom=3,
-        pitch=0,
+        latitude=gdf["lat"].mean(),
+        longitude=gdf["lon"].mean(),
+        zoom=5
     )
 
     chart = pdk.Deck(
         layers=[icon_layer],
         initial_view_state=view_state,
-        tooltip={"text": "Cluster: {cluster} \n Site Name: {site_name}"},
-        map_style="light",
+        tooltip={"text": "Cluster: {cluster}\nSite Name: {site_name}"},
+        map_style=None
     )
 
-    event = st.pydeck_chart(chart, on_select="rerun",
-                            selection_mode="single-object")
+    event = st.pydeck_chart(
+        chart,
+        selection_mode="single-object",
+        on_select="rerun"
+    )
 
     selected = event.selection
+    df = None
+    if selected and "objects" in selected:
+        objects = selected["objects"].get("site_icons", [])
+        if objects:
+            df = pd.DataFrame([objects[0]])  # Only take first selected
 
-    return selected
+    return df
 
 
 def _edit_clustering(choice):

@@ -21,36 +21,46 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
 
     Parameters:
     - df_product (pd.DataFrame): Subset of the main dataframe for one sector-product.
-    - valid_config_id (set or dict): Set or dict of valid configuration IDs to preselect.
-    - columns_to_show_selection (list): Ordered list of columns to display in editor.
+    - columns_to_show_selection (list): Ordered list of columns to display in the selection editor.
     - sector (str): Sector name.
     - product (str): Product name.
     - mode_key (str): Prefix key for Streamlit widget keys to differentiate mode (e.g., 'eumix', 'custom').
+    - df_upload (pd.DataFrame, optional): Previously uploaded selection with 'route_name' and 'route_weight'.
 
     Returns:
-    - pd.DataFrame: Edited DataFrame containing only selected routes and weights.
+    - pd.DataFrame: Edited DataFrame containing selected routes with parameters and weights.
     - bool: True if edited, False otherwise.
     """
+    columns_param = [
+        "electricity_[gj/t]", "alternative_fuel_mixture_[gj/t]", "biomass_[gj/t]",
+        "biomass_waste_[gj/t]", "coal_[gj/t]", "coke_[gj/t]", "crude_oil_[gj/t]",
+        "hydrogen_[gj/t]", "methanol_[gj/t]", "ammonia_[gj/t]", "naphtha_[gj/t]",
+        "natural_gas_[gj/t]", "plastic_mix_[gj/t]", "alternative_fuel_mixture_[t/t]",
+        "biomass_[t/t]", "biomass_waste_[t/t]", "coal_[t/t]", "coke_[t/t]",
+        "crude_oil_[t/t]", "hydrogen_[t/t]", "methanol_[t/t]", "ammonia_[t/t]",
+        "naphtha_[t/t]", "natural_gas_[t/t]", "plastic_mix_[t/t]",
+        "co2_allowance_[eur/t]", "direct_emission_[tco2/t]", "total_emission_[tco2/t]",
+        "direct_emission_reduction_[%]", "total_emission_reduction_[%]", "captured_co2_[tco2/t]"
+    ]
+
+    # Apply uploaded data if available
     if df_upload is not None:
         df_product["selected"] = df_product["route_name"].isin(
             df_upload["route_name"])
-        df_upload_map = df_upload.set_index("route_name")[
-            "route_weight"].to_dict()
-
-        df_product["route_weight"] = (
-            df_product["route_name"]
-            .map(df_upload_map)
-            .fillna(0)
-        )
-
+        df_upload_map = df_upload.set_index(
+            "route_name")["route_weight"].to_dict()
+        df_product["route_weight"] = df_product["route_name"].map(
+            df_upload_map).fillna(0)
     else:
         df_product["selected"] = False
         df_product["route_weight"] = None
 
+    # Reorder columns to place 'selected' first
     cols = df_product.columns.tolist()
     cols.remove("selected")
     df_product = df_product[["selected"] + cols].reset_index(drop=True)
 
+    # Selection editor
     edited_df = st.data_editor(
         df_product,
         num_rows="fixed",
@@ -71,22 +81,119 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
         else:
             selected_df["route_weight"] = 0
 
-    st.text("Edit the weight (%)")
+    # Streamlit tabs for editing weights and parameters
+    tab1, tab2 = st.tabs(["Edit the weight (%)", "Edit route parameters"])
 
-    edited_selected_df = st.data_editor(
-        selected_df,
-        num_rows="fixed",
-        column_config={
-            "route_weight": st.column_config.NumberColumn("route_weight")},
-        disabled=selected_df.columns.difference(["route_weight"]).tolist(),
-        hide_index=True,
-        column_order=["route_name", "route_weight"],
-        use_container_width=True,
-        key=f"selected_df_{mode_key}_{sector}_{product}",
-    )
+    with tab1:
+        edited_selected_df = st.data_editor(
+            selected_df,
+            num_rows="fixed",
+            column_config={
+                "route_weight": st.column_config.NumberColumn("route_weight")},
+            disabled=selected_df.columns.difference(["route_weight"]).tolist(),
+            hide_index=True,
+            column_order=["route_name", "route_weight"],
+            use_container_width=True,
+            key=f"weight_editor_{mode_key}_{sector}_{product}",
+        )
+
+    with tab2:
+        column_to_show = ["route_name"] + columns_param
+
+        edited_selected_df = st.data_editor(
+            edited_selected_df,
+            num_rows="fixed",
+            disabled=selected_df.columns.difference(columns_param).tolist(),
+            hide_index=True,
+            column_order=column_to_show,
+            use_container_width=True,
+            key=f"param_editor_{mode_key}_{sector}_{product}",
+        )
+
+        # Optional: flag modified routes by checking parameter changes
+        for route in edited_selected_df["route_name"].unique():
+            edited_subset = edited_selected_df[edited_selected_df["route_name"]
+                                               == route][columns_param]
+            original_subset = selected_df[selected_df["route_name"]
+                                          == route][columns_param]
+
+            if not edited_subset.equals(original_subset):
+                edited_selected_df.loc[
+                    edited_selected_df["route_name"] == route, "route_name"
+                ] = route + " modified"
+                modified = True
+
+            edited_subset_weight = edited_selected_df["route_weight"]
+            original_subset_weight = selected_df["route_weight"]
+
+            if not edited_subset_weight.equals(original_subset_weight):
+                modified = True
+
+    if modified:
+        st.markdown("**Changes made:**")
+
+        col1, col2 = st.columns(2)
+
+        # ---- COLUMN 1: ROUTE WEIGHT CHANGES ----
+        with col1:
+            st.text("⚖️ Weight changes")
+            found_weight_change = False
+
+            for route in edited_selected_df["route_name"].unique():
+                base_route = route.replace(" modified", "")
+                edited_row = edited_selected_df[edited_selected_df["route_name"] == route]
+                original_row = selected_df[selected_df["route_name"]
+                                           == base_route]
+
+                if original_row.empty:
+                    continue  # skip unmatched
+
+                if "route_weight" in edited_row.columns:
+                    old_weight = original_row["route_weight"].values[0]
+                    new_weight = edited_row["route_weight"].values[0]
+
+                    if not pd.isna(old_weight) or not pd.isna(new_weight):
+                        if old_weight != new_weight:
+                            st.write(
+                                f"- `{base_route}`: `{old_weight}` → `{new_weight}`")
+                            found_weight_change = True
+
+            if not found_weight_change:
+                st.write("No weight changes.")
+
+        # ---- COLUMN 2: ROUTE PARAMETER CHANGES ----
+        with col2:
+            st.text("⚙️ Parameter changes")
+            found_param_change = False
+
+            for route in edited_selected_df["route_name"].unique():
+                base_route = route.replace(" modified", "")
+                edited_row = edited_selected_df[edited_selected_df["route_name"] == route]
+                original_row = selected_df[selected_df["route_name"]
+                                           == base_route]
+
+                if original_row.empty:
+                    continue  # skip unmatched
+
+                for col in edited_row.columns:
+                    if col == "route_weight" or col == "route_name" or col not in original_row.columns:
+                        continue  # skip weight column
+
+                    old_value = original_row[col].values[0]
+                    new_value = edited_row[col].values[0]
+
+                    if pd.isna(old_value) and pd.isna(new_value):
+                        continue
+                    if old_value != new_value:
+                        st.write(
+                            f"- {base_route} *modified* | **{col}**: `{old_value}` → `{new_value}`"
+                        )
+                        found_param_change = True
+
+            if not found_param_change:
+                st.write("No parameter changes.")
 
     return edited_selected_df, modified
-
 # Streamlit interface and data tools
 
 
