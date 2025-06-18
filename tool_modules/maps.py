@@ -237,7 +237,6 @@ def map_per_pathway():
                                               sectors_included, selection_mode="multi", default=sectors_included)
         st.markdown(
             '<span style="font-size: 0.85em;">*Only sectors & products included in AIDRES database*</span>', unsafe_allow_html=True)
-        st.markdown("""*Click on a cluster to see details **below the map***""")
 
         # Selected sectors
         dict_gdf_clustered[pathway].copy()
@@ -248,6 +247,8 @@ def map_per_pathway():
             df_selected_site = None
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
+            st.markdown(
+                """*Click on a cluster to see details **below the map***""")
             df_selected = _mapping_chart_per_ener_feed_cluster(
                 gdf_clustered_centroid, color_map, unit)
         if map_choice == "site":
@@ -746,6 +747,9 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     import io
     from PIL import Image, ImageDraw
 
+    color_choice = st.radio(
+        "Color select", ["Per cluster", "Per sector"], horizontal=True)
+
     # --- Preprocessing ---
     type_ener_feed = list(color_map.keys())
     energy_cols = [col for col in gdf.columns if "[" in col]
@@ -764,19 +768,47 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf["radius"] = _get_radius(gdf)
 
-    # --- Cluster colouring ---
+   # --- Cluster colouring ---
     base_cmap = plt.get_cmap("tab20")
     max_colors = base_cmap.N
     unique_clusters = sorted(gdf["cluster"].unique())
-    base_colors_rgb = [[int(255 * c) for c in base_cmap(i)[:3]]
-                       for i in range(max_colors)]
+
+    base_colors_rgb = [
+        [int(255 * c) for c in base_cmap(i)[:3]]
+        for i in range(max_colors)
+    ]
 
     cluster_color_map = {
         cluster: [0, 0, 0] if cluster == -
         1 else base_colors_rgb[idx % max_colors]
         for idx, cluster in enumerate(unique_clusters)
     }
-    gdf["color"] = gdf["cluster"].map(cluster_color_map)
+
+    # --- Sector colouring ---
+    sector_cmap = {
+        "Cement":      [102, 102, 102],   # grey – resembles concrete
+        "Chemical":    [31, 119, 180],    # blue – common for chemicals/labs
+        "Fertilisers": [44, 160, 44],     # green – plant/nutrient association
+        "Glass":       [148, 103, 189],   # purple – transparent/glassy feel
+        "Refineries":  [255, 127, 14],    # orange – heat/oil-related
+        "Steel":       [127, 127, 127],   # dark grey – metallic
+    }
+    legend_site_html = """
+        <div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">
+        <b>Sector Legend</b><br>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(102, 102, 102); margin-right: 8px;"></div>Cement</div>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(31, 119, 180); margin-right: 8px;"></div>Chemical</div>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(44, 160, 44); margin-right: 8px;"></div>Fertilisers</div>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(148, 103, 189); margin-right: 8px;"></div>Glass</div>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(255, 127, 14); margin-right: 8px;"></div>Refineries</div>
+        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(127, 127, 127); margin-right: 8px;"></div>Steel</div>
+        </div>
+        """
+
+    if color_choice == "Per cluster":
+        gdf["color"] = gdf["cluster"].map(cluster_color_map)
+    elif color_choice == "Per sector":
+        gdf["color"] = gdf["sector_name"].map(sector_cmap)
 
     def generate_base64_icon_from_color_pil(rgb, size=128):
         img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -813,7 +845,8 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         longitude=gdf["lon"].mean(),
         zoom=5
     )
-
+    if color_choice == "Per sector":
+        st.markdown(legend_site_html, unsafe_allow_html=True)
     chart = pdk.Deck(
         layers=[icon_layer],
         initial_view_state=view_state,
