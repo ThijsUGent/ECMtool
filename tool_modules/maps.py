@@ -746,11 +746,14 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     import base64
     import io
     from PIL import Image, ImageDraw
+    import pydeck as pdk
+    import pandas as pd
+    import streamlit as st
 
     color_choice = st.radio(
         "Color select", ["Per cluster", "Per sector"], horizontal=True)
 
-    # --- Preprocessing ---
+    # --- Preprocessing (your original preprocessing) ---
     type_ener_feed = list(color_map.keys())
     energy_cols = [col for col in gdf.columns if "[" in col]
     rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
@@ -768,7 +771,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
     gdf["radius"] = _get_radius(gdf)
 
-   # --- Cluster colouring ---
+    # --- Cluster colouring ---
     base_cmap = plt.get_cmap("tab20")
     max_colors = base_cmap.N
     unique_clusters = sorted(gdf["cluster"].unique())
@@ -786,24 +789,45 @@ def _mapping_chart_per_ener_feed_sites(gdf):
 
     # --- Sector colouring ---
     sector_cmap = {
-        "Cement":      [102, 102, 102],   # grey – resembles concrete
-        "Chemical":    [31, 119, 180],    # blue – common for chemicals/labs
-        "Fertilisers": [44, 160, 44],     # green – plant/nutrient association
-        "Glass":       [148, 103, 189],   # purple – transparent/glassy feel
-        "Refineries":  [255, 127, 14],    # orange – heat/oil-related
-        "Steel":       [127, 127, 127],   # dark grey – metallic
+        "Cement":      [102, 102, 102],   # grey
+        "Chemical":    [31, 119, 180],    # blue
+        "Fertilisers": [44, 160, 44],     # green
+        "Glass":       [148, 103, 189],   # purple
+        "Refineries":  [255, 127, 14],    # orange
+        "Steel":       [127, 127, 127],   # dark grey
     }
-    legend_site_html = """
-        <div style="font-family: sans-serif; font-size: 14px; line-height: 1.6;">
-        <b>Sector Legend</b><br>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(102, 102, 102); margin-right: 8px;"></div>Cement</div>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(31, 119, 180); margin-right: 8px;"></div>Chemical</div>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(44, 160, 44); margin-right: 8px;"></div>Fertilisers</div>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(148, 103, 189); margin-right: 8px;"></div>Glass</div>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(255, 127, 14); margin-right: 8px;"></div>Refineries</div>
-        <div style="display: flex; align-items: center;"><div style="width: 15px; height: 15px; background: rgb(127, 127, 127); margin-right: 8px;"></div>Steel</div>
-        </div>
-        """
+
+    legend_site_html_horizontal = """
+    <style>
+    .legend-horizontal {
+        font-family: sans-serif;
+        font-size: 14px;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+    }
+    .legend-color {
+        width: 15px;
+        height: 15px;
+        margin-right: 6px;
+        flex-shrink: 0;
+    }
+    </style>
+    <div class="legend-horizontal">
+        <div class="legend-item"><div class="legend-color" style="background: rgb(102, 102, 102);"></div>Cement</div>
+        <div class="legend-item"><div class="legend-color" style="background: rgb(31, 119, 180);"></div>Chemical</div>
+        <div class="legend-item"><div class="legend-color" style="background: rgb(44, 160, 44);"></div>Fertilisers</div>
+        <div class="legend-item"><div class="legend-color" style="background: rgb(148, 103, 189);"></div>Glass</div>
+        <div class="legend-item"><div class="legend-color" style="background: rgb(255, 127, 14);"></div>Refineries</div>
+        <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
+    </div>
+    """
 
     if color_choice == "Per cluster":
         gdf["color"] = gdf["cluster"].map(cluster_color_map)
@@ -827,10 +851,8 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         "anchorY": 128,
     })
 
-    # --- Icon Layer (clickable) ---
     icon_layer = pdk.Layer(
         "IconLayer",
-        # This ID will be used in event.selection["objects"]["site_icons"]
         id="site_icons",
         data=gdf,
         get_icon="icon_data",
@@ -845,8 +867,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         longitude=gdf["lon"].mean(),
         zoom=5
     )
-    if color_choice == "Per sector":
-        st.markdown(legend_site_html, unsafe_allow_html=True)
+
     chart = pdk.Deck(
         layers=[icon_layer],
         initial_view_state=view_state,
@@ -854,18 +875,23 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         map_style=None
     )
 
-    event = st.pydeck_chart(
+    st.pydeck_chart(
         chart,
         selection_mode="single-object",
         on_select="rerun"
     )
 
-    selected = event.selection
+    if color_choice == "Per sector":
+        st.markdown(legend_site_html_horizontal, unsafe_allow_html=True)
+
+    event = st.session_state.get('pydeck_event', None)
+    selected = None
+    if event and "objects" in event:
+        selected = event["objects"].get("site_icons", [])
+
     df = None
-    if selected and "objects" in selected:
-        objects = selected["objects"].get("site_icons", [])
-        if objects:
-            df = pd.DataFrame([objects[0]])  # Only take first selected
+    if selected:
+        df = pd.DataFrame([selected[0]])  # Only first selected object
 
     return df
 
