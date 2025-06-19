@@ -8,6 +8,7 @@ from tool_modules.import_export_file import *
 from tool_modules.maps import *
 from tool_modules.cluster_results import *
 from tool_modules.cluster_configuration import *
+from tool_modules.emissions import *
 
 
 from pages_scripts.menu_pages import *
@@ -69,16 +70,18 @@ def main():
     if main_section == "Pathway":
         pathway_subsection = st.sidebar.radio(
             "Select a page",
-            ["Pathway configuration", "Pathway visualisation",
-                "Production route consumption"],
+            ["Pathway configuration", "Production route consumption", "CO2 Emissions", "Pathway visualisation"
+             ],
             key="pathway_sub",
         )
         if pathway_subsection == "Pathway configuration":
             select_page()
-        elif pathway_subsection == "Pathway visualisation":
-            view_page()
         elif pathway_subsection == "Production route consumption":
             perton_page()
+        elif pathway_subsection == "CO2 Emissions":
+            emissions_page()
+        elif pathway_subsection == "Pathway visualisation":
+            view_page()
 
     elif main_section == "Maps - European scale":
         maps_subsection = st.sidebar.radio(
