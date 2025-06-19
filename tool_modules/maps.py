@@ -254,12 +254,12 @@ def map_per_pathway():
                     "RES production": "RES"
                 }
 
-                # Show radio with display labels
-                layer_label = st.pills(
-                    "Add a layer", list(layer_options.keys()))
-                if layer_label:
-                    # Get internal value
-                    layer = layer_options[layer_label]
+                # # Show radio with display labels
+                # layer_label = st.pills(
+                #     "Add a layer", list(layer_options.keys()))
+                # if layer_label:
+                #     # Get internal value
+                #     layer = layer_options[layer_label]
 
             # Selected sectors
             dict_gdf_clustered[pathway].copy()
@@ -279,7 +279,7 @@ def map_per_pathway():
             df_selected_site = _mapping_chart_per_ener_feed_sites(
                 dict_gdf_clustered[pathway])
         if df_selected_site is not None:
-            _chart_site(df_selected_site)
+            _chart_site(df_selected_site, unit)
 
         if df_selected is not None:
             chart = st.radio("Select an option ", ["Treemap",
@@ -315,8 +315,34 @@ def map_per_pathway():
                     )
 
 
-def _chart_site(df):
-    st.write(df)
+def _chart_site(df, unit):
+    df["unit"] = unit
+    desired_cols = [
+        "site_name",
+        "sector_name", "product_name", "prod_cap",
+        "prod_rate",
+        "utilization_rate",
+        "total_energy",
+        "alternative fuel mixture",
+        "ammonia",
+        "biomass",
+        "biomass waste",
+        "coal",
+        "coke",
+        "crude oil",
+        "electricity",
+        "hydrogen",
+        "methanol",
+        "naphtha",
+        "natural gas",
+        "plastic mix",
+        "unit"
+    ]
+
+    # Only keep columns that exist in df
+    existing_cols = [col for col in desired_cols if col in df.columns]
+
+    st.write(df[existing_cols])
 
 
 def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
@@ -898,7 +924,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
         map_style=None
     )
 
-    st.pydeck_chart(
+    event = st.pydeck_chart(
         chart,
         selection_mode="single-object",
         on_select="rerun"
@@ -907,15 +933,13 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     if color_choice == "Per sector":
         st.markdown(legend_site_html_horizontal, unsafe_allow_html=True)
 
-    event = st.session_state.get('pydeck_event', None)
-    selected = None
-    if event and "objects" in event:
-        selected = event["objects"].get("site_icons", [])
+    selected = event.selection
+    if selected and "objects" in selected:
+        selected = selected["objects"].get("site_icons", [])
 
     df = None
     if selected:
         df = pd.DataFrame([selected[0]])  # Only first selected object
-
     return df
 
 
