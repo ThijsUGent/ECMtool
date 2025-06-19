@@ -254,12 +254,12 @@ def map_per_pathway():
                     "RES production": "RES"
                 }
 
-                # # Show radio with display labels
-                # layer_label = st.pills(
-                #     "Add a layer", list(layer_options.keys()))
-                # if layer_label:
-                #     # Get internal value
-                #     layer = layer_options[layer_label]
+                # Show radio with display labels
+                layer_label = st.pills(
+                    "Add a layer", list(layer_options.keys()))
+                if layer_label:
+                    # Get internal value
+                    layer = layer_options[layer_label]
 
             # Selected sectors
             dict_gdf_clustered[pathway].copy()
