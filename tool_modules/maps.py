@@ -208,47 +208,70 @@ def map_per_pathway():
             gdf_clustered = _run_clustering(
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
-        st.divider()
-        map_choice = st.radio("Mapping view", ["cluster centroid", "site"])
+
     with col2:
-        if pathways_names_filtered == []:
-            # or pathways_names.tolist() if it's a Pandas Series
-            names = list(pathways_names)
-            # Format each name in italics using Markdown
-            italic_names = [f"*{name}*" for name in names]
+        col_map_param, col_layers = st.columns([2, 1])
+        with col_map_param:
+            if pathways_names_filtered == []:
+                # or pathways_names.tolist() if it's a Pandas Series
+                names = list(pathways_names)
+                # Format each name in italics using Markdown
+                italic_names = [f"*{name}*" for name in names]
 
-            if len(italic_names) == 1:
-                text = f"{italic_names[0]} not in AIDRES scope"
-            elif len(italic_names) == 2:
-                text = f"{italic_names[0]} & {italic_names[1]} not in AIDRES scope"
+                if len(italic_names) == 1:
+                    text = f"{italic_names[0]} not in AIDRES scope"
+                elif len(italic_names) == 2:
+                    text = f"{italic_names[0]} & {italic_names[1]} not in AIDRES scope"
+                else:
+                    text = f"{', '.join(italic_names[:-1])} & {italic_names[-1]} not in AIDRES scope"
+
+                st.markdown(text)
+                st.warning("Please select a pathway within AIDRES scope")
+                st.stop()
+
+            pathway = st.radio("Select a pathway",
+                               pathways_names_filtered, horizontal=True)
+
+            sectors_included = dict_gdf_clustered[pathway]["aidres_sector_name"].unique(
+            ).tolist()
+            sector_seleted = st.pills("Sector(s) included within the pathway:",
+                                      sectors_included, selection_mode="multi", default=sectors_included)
+            st.markdown(
+                '<span style="font-size: 0.85em;">*Only sectors & products included in AIDRES database*</span>', unsafe_allow_html=True)
+
+            map_choice_toggle = st.toggle("Site view")
+
+            if map_choice_toggle:
+                map_choice = "site"
+                toggle_text = "Site "
             else:
-                text = f"{', '.join(italic_names[:-1])} & {italic_names[-1]} not in AIDRES scope"
+                map_choice = "cluster centroid"
+                toggle_text = "Cluster centroid "
+            with col_layers:
+                # Define display labels and internal values
+                layer_options = {
+                    "RES potential": "enspresso",
+                    "RES production": "RES"
+                }
 
-            st.markdown(text)
-            st.warning("Please select a pathway within AIDRES scope")
-            st.stop()
+                # Show radio with display labels
+                layer_label = st.pills(
+                    "Add a layer", list(layer_options.keys()))
+                if layer_label:
+                    # Get internal value
+                    layer = layer_options[layer_label]
 
-        pathway = st.radio("Select a pathway",
-                           pathways_names_filtered, horizontal=True)
-
-        sectors_included = dict_gdf_clustered[pathway]["aidres_sector_name"].unique(
-        ).tolist()
-        sector_seleted = st.segmented_control("Sector(s) included within the pathway:",
-                                              sectors_included, selection_mode="multi", default=sectors_included)
-        st.markdown(
-            '<span style="font-size: 0.85em;">*Only sectors & products included in AIDRES database*</span>', unsafe_allow_html=True)
-
-        # Selected sectors
-        dict_gdf_clustered[pathway].copy()
-        dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway][dict_gdf_clustered[pathway]
-                                                                  ["aidres_sector_name"].isin(sector_seleted)]
+            # Selected sectors
+            dict_gdf_clustered[pathway].copy()
+            dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway][dict_gdf_clustered[pathway]
+                                                                      ["aidres_sector_name"].isin(sector_seleted)]
 
         if map_choice == "cluster centroid":
             df_selected_site = None
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             st.markdown(
-                """*Click on a cluster to see details **below the map***""")
+                """*Click on a cluster centroid to see details **below the map***""")
             df_selected = _mapping_chart_per_ener_feed_cluster(
                 gdf_clustered_centroid, color_map, unit)
         if map_choice == "site":
@@ -751,7 +774,7 @@ def _mapping_chart_per_ener_feed_sites(gdf):
     import streamlit as st
 
     color_choice = st.radio(
-        "Color select", ["Per cluster", "Per sector"], horizontal=True)
+        "Site color select", ["Per cluster", "Per sector"], horizontal=True)
 
     # --- Preprocessing (your original preprocessing) ---
     type_ener_feed = list(color_map.keys())
