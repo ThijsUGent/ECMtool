@@ -254,25 +254,25 @@ def map_per_pathway():
             with col_layers:
                 gdf_layer = None
                 layer_options = None
-                # # Define display labels and internal values
-                # layer_options = {
-                #     "RES potential": "enspresso",
-                #     "RES production": "RES"
-                # }
+                # Define display labels and internal values
+                layer_options = {
+                    "RES potential": "enspresso",
+                    "RES production": "RES"
+                }
 
-                # # Show radio with display labels
-                # layer_label = st.pills(
-                #     "Add a layer", list(layer_options.keys()))
+                # Show radio with display labels
+                layer_label = st.pills(
+                    "Add a layer", list(layer_options.keys()))
 
-                # if layer_label:
-                #     # Get internal value
-                #     layer = layer_options[layer_label]
-                #     if layer == "enspresso":
-                #         st.write("Under construction")
+                if layer_label:
+                    # Get internal value
+                    layer = layer_options[layer_label]
+                    if layer == "enspresso":
+                        st.write("Under construction")
 
-                #     elif layer == "RES":
-                #         gdf_layer = _layer_RES_generation()
-                #         st.write(gdf_layer.columns)
+                    elif layer == "RES":
+                        gdf_layer = _layer_RES_generation()
+                        st.write(gdf_layer.columns)
 
             # Selected sectors
             dict_gdf_clustered[pathway].copy()
