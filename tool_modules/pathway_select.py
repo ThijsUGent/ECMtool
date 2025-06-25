@@ -12,6 +12,14 @@ from tool_modules.builder_functions import *
 
 
 def select_page():
+    # Prechoice radio doc link
+
+    if "pathway_configuration_prechoice" not in st.session_state:
+        st.session_state["pathway_configuration_prechoice"] = 0
+
+    pathway_configuration_prechoice = st.session_state.get(
+        "pathway_configuration_prechoice", 0)
+
     st.title("Pathway Builder")
     # creates two columns with a 4:1 width ratio
     col1, col2 = st.columns([4, 1])
@@ -48,7 +56,7 @@ def select_page():
         selection = st.radio(
             "Choose an option",
             ["Ready-made path", "Upload a path", "Create a path"],
-            horizontal=True,
+            horizontal=True, index=pathway_configuration_prechoice
         )
         aidres_mix_checked = selection == "Ready-made path"
         upload_mix_checked = selection == "Upload a path"

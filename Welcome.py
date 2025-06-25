@@ -9,7 +9,7 @@ from tool_modules.maps import *
 from tool_modules.cluster_results import *
 from tool_modules.cluster_configuration import *
 from tool_modules.emissions import *
-
+from doc.doc_pathway import *
 
 st.set_page_config(layout="wide")
 logo = "images/logo_UGent_EN_RGB_2400_color.png"

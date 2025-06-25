@@ -2,13 +2,41 @@ import streamlit as st
 
 
 def doc_pathway():
-    # replace with your actual video
-    with st.expander("Pre-made Pathways"):
-        st.video("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
 
-    with st.expander("Create a Cluster"):  # replace with your actual video
-        st.video("https://www.youtube.com/watch?v=3jZ5vnv-LZc")
+    if "tool_subsection_prechoice" not in st.session_state:
+        st.session_state["tool_subsection_prechoice"] = 0
 
-    with st.expander("Upload a Cluster"):
-        # replace with your actual video
-        st.video("https://www.youtube.com/watch?v=9bZkp7q19f0")
+    tool_subsection_prechoice = st.session_state.get(
+        "tool_subsection_prechoice", 0)
+
+    subsection = st.radio("Subsection:", [
+        "Pathway configuration",
+        "Production route consumption",
+        "CO2 Emissions",
+        "Pathway visualisation",
+    ], index=tool_subsection_prechoice, horizontal=True)
+
+    if subsection == "Pathway configuration":
+        with st.expander("Pre-made Pathways"):
+            st.video("video/pathway/config_premade.mp4",
+                     subtitles="video/pathway/config_premade.vtt")
+            if st.button("Go to Pre-made pathway →"):
+                st.session_state["tool_subsection_prechoice"] = 0
+                st.session_state["pathway_configuration_prechoice"] = 0
+                st.switch_page("pages/1_Tool.py")
+
+        with st.expander("Create a Pathway"):
+            st.video("video/pathway/config_create.mp4",
+                     subtitles="video/pathway/config_create.vtt", end_time="1m47s")
+            if st.button("Go to Create a pathway →"):
+                st.session_state["tool_subsection_prechoice"] = 0
+                st.session_state["pathway_configuration_prechoice"] = 2
+                st.switch_page("pages/1_Tool.py")
+
+        with st.expander("Upload a Pathway"):
+            st.video("video/pathway/config_upload.mp4",
+                     subtitles="video/pathway/config_upload.vtt")
+            if st.button("Go to Upload a pathway →"):
+                st.session_state["tool_subsection_prechoice"] = 0
+                st.session_state["pathway_configuration_prechoice"] = 1
+                st.switch_page("pages/1_Tool.py")
