@@ -1,5 +1,8 @@
 import streamlit as st
+from pages_scripts.doc.doc_pathway import *
 
+
+# Read query parameter
 
 def welcome():
     st.header("Welcome")
@@ -10,7 +13,7 @@ The Energy and Cluster Management (ECM) group at Ghent University focuses on sus
 
 ### [AIDRES Project](https://op.europa.eu/en/publication-detail/-/publication/577d820d-5115-11ee-9220-01aa75ed71a1/language-en)
 
-The AIDRES database supports the EU-27’s long-term goal of a fully integrated industrial strategy. It serves as a valuable resource for the European Commission and industry stakeholders, offering insights into the effectiveness, efficiency, and cost of potential innovation pathways to achieve carbon neutrality in key sectors—steel, chemical, cement, glass, fertiliser, and refinery—by 2050. 
+The AIDRES database supports the EU-27’s long-term goal of a fully integrated industrial strategy. It serves as a valuable resource for the European Commission and industry stakeholders, offering insights into the effectiveness, efficiency, and cost of potential innovation pathways to achieve carbon neutrality in key sectors—steel, chemical, cement, glass, fertiliser, and refinery—by 2050.
 """)
 
     st.markdown("""
@@ -19,18 +22,33 @@ The AIDRES database supports the EU-27’s long-term goal of a fully integrated 
 
 
 def Documentation():
+    st.title("Documentation")
 
-    st.subheader("Pathway")
-    st.markdown("""This tool uses the AIDRES database to extract the energy need for each product through configurable pathways. Users can create and save multiple pathways that represent different industrial scenarios, serving as the basis for subsequent analyses.""")
+    tab_options = [
+        "📘 Pathway",
+        "🗺️ Maps - European scale",
+        "🔬 Cluster - microscale",
+        "📚 Glossary"
+    ]
 
-    st.subheader("Maps - European scale")
-    st.markdown("""The spatial data from AIDRES is visualised at the European scale to assess and compare the energy need across different regions. Sites are clustered based on geographical proximity and sector characteristics, helping to identify regional potentials for decarbonisation and clustering.""")
+    tabs_choice = st.pills("Select section", tab_options)
 
-    st.subheader("Cluster - microscale")
-    st.markdown("""The microscale section allows full customisation of clusters. Users can define the annual production of multiple products within a cluster, download existing cluster configurations, or upload their own. The results can be compared visually using treemaps and sankey diagrams, supporting deeper insights into energy flows and interconnections.""")
+    if tabs_choice == "📘 Pathway":
+        st.header("Pathway")
+        st.markdown("""This tool uses the AIDRES database to extract the energy need for each product through configurable pathways. Users can create and save multiple pathways that represent different industrial scenarios, serving as the basis for subsequent analyses.""")
+        doc_pathway()
 
-    st.subheader("Glossary")
-    st.markdown("""The glossary provides definitions and explanations of key terms and concepts used throughout the tool, ensuring users have a clear understanding of the terminology related to energy systems, industrial symbiosis, and the AIDRES database.""")
+    elif tabs_choice == "🗺️ Maps - European scale":
+        st.header("Maps - European scale")
+        st.markdown("""The spatial data from AIDRES is visualised at the European scale to assess and compare the energy need across different regions. Sites are clustered based on geographical proximity and sector characteristics, helping to identify regional potentials for decarbonisation and clustering.""")
+
+    elif tabs_choice == "🔬 Cluster - microscale":
+        st.header("Cluster - microscale")
+        st.markdown("""The microscale section allows full customisation of clusters. Users can define the annual production of multiple products within a cluster, download existing cluster configurations, or upload their own. The results can be compared visually using treemaps and sankey diagrams, supporting deeper insights into energy flows and interconnections.""")
+
+    elif tabs_choice == "📚 Glossary":
+        st.header("Glossary")
+        st.markdown("""The glossary provides definitions and explanations of key terms and concepts used throughout the tool, ensuring users have a clear understanding of the terminology related to energy systems, industrial symbiosis, and the AIDRES database.""")
 
 
 def ECM():
@@ -40,7 +58,7 @@ def ECM():
 
  Research topics focus on concerted energy & resource management at business parks, on industrial sites or in cross-sectorial clusters. It concerns characteristic interdisciplinary research, combining engineering & modelling skills with economic analyses, spatial planning, policy settings and social responsibility.
 
-The main line of research is on advancing the ECM LESTS (Legal, Economic, Spatial, Technical and Social) survey for assessing park management intensity into a toolbox for driving energy symbiosis and circular economy principles in and across process industries. Typical ECM projects focus on energy efficiency, resource optimisation, site integration, waste (heat) recovery, regional clustering, etc.""")
+The main line of research is on advancing the ECM LESTS(Legal, Economic, Spatial, Technical and Social) survey for assessing park management intensity into a toolbox for driving energy symbiosis and circular economy principles in and across process industries. Typical ECM projects focus on energy efficiency, resource optimisation, site integration, waste(heat) recovery, regional clustering, etc.""")
     st.subheader(
         "[PIECE project](https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm/piece)")
     st.markdown("""**Overview**""")
