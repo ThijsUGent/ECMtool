@@ -22,6 +22,7 @@ def doc_pathway():
                      subtitles="video/pathway/config_premade.vtt")
             if st.button("Go to Pre-made pathway →"):
                 st.session_state["tool_subsection_prechoice"] = 0
+                # Use inside pathway configuration to select good mode
                 st.session_state["pathway_configuration_prechoice"] = 0
                 st.switch_page("pages/1_Tool.py")
 

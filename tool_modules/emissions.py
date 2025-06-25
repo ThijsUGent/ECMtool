@@ -4,7 +4,7 @@ import numpy as np
 import plotly.express as px  # Correct import for plotting
 
 
-def emissions_page():
+def emissions_pathway():
     columns = [
         "direct_emission_[tco2/t]",
         "total_emission_[tco2/t]",

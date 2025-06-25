@@ -35,8 +35,10 @@ sectors_list = [
 
 
 def cluster_configuration():
+    if "cluster_configuration_prechoice" not in st.session_state:
+        st.session_state["cluster_configuration_prechoice"] = 0
     choice = st.radio("Select an option", [
-                      "Create a cluster", "Upload a cluster"], horizontal=True)
+                      "Create a cluster", "Upload a cluster"], horizontal=True, index=st.session_state["cluster_configuration_prechoice"])
 
     df_cluster = pd.DataFrame()
     cluster_name = "Cluster 1"
