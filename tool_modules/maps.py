@@ -1,31 +1,23 @@
+import os
+import io
+import math
 import base64
 from io import BytesIO
-from tool_modules.cluster import *
-import streamlit as st
+
+import numpy as np
 import pandas as pd
 import geopandas as gpd
-from shapely import wkb
-import pydeck as pdk
-import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
 import pydeck as pdk
-import pandas as pd
-from io import BytesIO
-import io
-import base64
-import os
-import math
-from sklearn.cluster import DBSCAN
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image, ImageDraw
-import streamlit as st
-import geopandas as gpd
-from shapely import wkt
-import io
+from shapely import wkt, wkb
+from sklearn.cluster import DBSCAN, KMeans
+from sklearn.preprocessing import StandardScaler
+
+from tool_modules.cluster import *
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -254,11 +246,11 @@ def map_per_pathway():
             with col_layers:
                 gdf_layer = None
                 layer_options = None
-                # # Define display labels and internal values
-                # layer_options = {
-                #     "RES potential": "enspresso",
-                #     "RES production": "RES"
-                # }
+                # Define display labels and internal values
+                layer_options = {
+                    "RES potential": "enspresso",
+                    "RES production": "RES"
+                }
 
                 # # Show radio with display labels
                 # layer_label = st.pills(
@@ -733,11 +725,6 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
 
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
-    import math
-    import pandas as pd
-    import pydeck as pdk
-    import base64
-    import streamlit as st
 
     # --- Prepare Data ---
     type_ener_feed = list(color_map.keys())
@@ -865,7 +852,6 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
     tooltip = {
         "html": """
             <b>Total energy:</b> {total_html}<br/>{pie_html}
-            <b>Site:</b> {NUTS_ID}
         """,
         "style": {
             "backgroundColor": "rgba(0,0,0,0.7)",
