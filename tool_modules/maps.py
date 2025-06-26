@@ -380,8 +380,9 @@ def map_per_pathway():
                         )
 
                         ############
+                    df_filtered_cluster["unit"] = unit
                     df_filtered_cluster_show = df_filtered_cluster[[
-                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy"]]
+                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "unit", "nuts3_code", "geometry"]]
 
                     df_filtered_cluster_show.columns = [
                         col.replace(

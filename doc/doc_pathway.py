@@ -18,7 +18,7 @@ def doc_pathway():
 
     if subsection == "Pathway configuration":
         with st.expander("Pre-made Pathways"):
-            st.video("video/pathway/config_premade.mp4",
+            st.video("video/pathway/config_premade_540p.mp4",
                      subtitles="video/pathway/config_premade.vtt")
             if st.button("Go to Pre-made pathway →"):
                 st.session_state["tool_subsection_prechoice"] = 0
@@ -27,7 +27,7 @@ def doc_pathway():
                 st.switch_page("pages/1_Tool.py")
 
         with st.expander("Create a Pathway"):
-            st.video("video/pathway/config_create.mp4",
+            st.video("video/pathway/config_create_540p.mp4",
                      subtitles="video/pathway/config_create.vtt", end_time="1m47s")
             if st.button("Go to Create a pathway →"):
                 st.session_state["tool_subsection_prechoice"] = 0
@@ -35,7 +35,7 @@ def doc_pathway():
                 st.switch_page("pages/1_Tool.py")
 
         with st.expander("Upload a Pathway"):
-            st.video("video/pathway/config_upload.mp4",
+            st.video("video/pathway/config_upload_540p.mp4",
                      subtitles="video/pathway/config_upload.vtt")
             if st.button("Go to Upload a pathway →"):
                 st.session_state["tool_subsection_prechoice"] = 0

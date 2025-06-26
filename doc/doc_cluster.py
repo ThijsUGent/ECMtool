@@ -20,7 +20,7 @@ def doc_cluster():
 
     if subsection == "Cluster configuration":
         with st.expander("Create a cluster", expanded=False):
-            st.video("video/cluster/cluster_create.mp4",
+            st.video("video/cluster/cluster_create_540p.mp4",
                      subtitles="video/cluster/cluster_create.vtt")
             st.markdown(" ")
             if st.button("Go to Pre-made pathway →", key="btn_cluster_create_goto"):
@@ -32,7 +32,7 @@ def doc_cluster():
                 st.switch_page("pages/1_Tool.py")
 
         with st.expander("Upload a cluster"):
-            st.video("video/cluster/cluster_upload.mp4", end_time="1m47s")
+            st.video("video/cluster/cluster_upload_540p.mp4", end_time="1m47s")
             st.markdown(" ")
             if st.button("Go to Create a pathway →", key="btn_cluster_upload_goto"):
                 st.session_state["tool_section_prechoice"] = 0
@@ -43,7 +43,7 @@ def doc_cluster():
 
     if subsection == "Cluster results":
         with st.expander("Visualise results"):
-            st.video("video/cluster/cluster_view.mp4"
+            st.video("video/cluster/cluster_view_540p.mp4"
                      )
             st.markdown(" ")
             if st.button("Go to Pre-made pathway →", key="btn_cluster_results_goto"):
