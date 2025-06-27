@@ -302,12 +302,12 @@ def map_per_pathway():
             color_choice = st.radio(
                 "Site color select", ["Per cluster", "Per sector"], horizontal=True)
             st.divider()
+            if color_choice == "Per sector":
+                if "legend_show_last" not in st.session_state:
+                    st.session_state["legend_show_last"] = True
 
-            if "legend_show_last" not in st.session_state:
-                st.session_state["legend_show_last"] = True
-
-            st.session_state["legend_show"] = st.toggle(
-                "Show legend", value=st.session_state["legend_show_last"])
+                st.session_state["legend_show"] = st.toggle(
+                    "Show legend", value=st.session_state["legend_show_last"])
             # TITLE
             st.markdown(
                 f"AIDRES sites colored by {color_choice} using {choice} ")
@@ -1135,44 +1135,44 @@ def _mapping_chart_per_ener_feed_sites(gdf, color_choice, gdf_layer,):
         longitude=gdf["lon"].mean(),
         zoom=5
     )
+    legend_site_html_vertical = """
+<style>
+.legend-horizontal {
+    font-family: sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;  /* Make it vertical */
+    gap: 10px;               /* Smaller gap between items */
+    margin-top: 10px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+.legend-color {
+    width: 15px;
+    height: 15px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+</style>
+<div class="legend-horizontal">
+    <div class="legend-item"><div class="legend-color" style="background: rgb(102, 102, 102);"></div>Cement</div>
+    <div class="legend-item"><div class="legend-color" style="background: rgb(31, 119, 180);"></div>Chemical</div>
+    <div class="legend-item"><div class="legend-color" style="background: rgb(44, 160, 44);"></div>Fertilisers</div>
+    <div class="legend-item"><div class="legend-color" style="background: rgb(148, 103, 189);"></div>Glass</div>
+    <div class="legend-item"><div class="legend-color" style="background: rgb(255, 127, 14);"></div>Refineries</div>
+    <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
+</div>
+"""
     if st.session_state["legend_show"]:
         st.session_state["legend_show_last"] = True
         map_col, legend_col = st.columns([0.8, 0.2])
+
     else:
         map_col = st.container()
         legend_col = None
 
-        legend_site_html_horizontal = """
-            <style>
-            .legend-horizontal {
-                font-family: sans-serif;
-                font-size: 14px;
-                display: flex;
-                justify-content: center;
-                gap: 20px;
-                margin-top: 10px;
-                flex-wrap: wrap;
-            }
-            .legend-item {
-                display: flex;
-                align-items: center;
-            }
-            .legend-color {
-                width: 15px;
-                height: 15px;
-                margin-right: 6px;
-                flex-shrink: 0;
-            }
-            </style>
-            <div class="legend-horizontal">
-                <div class="legend-item"><div class="legend-color" style="background: rgb(102, 102, 102);"></div>Cement</div>
-                <div class="legend-item"><div class="legend-color" style="background: rgb(31, 119, 180);"></div>Chemical</div>
-                <div class="legend-item"><div class="legend-color" style="background: rgb(44, 160, 44);"></div>Fertilisers</div>
-                <div class="legend-item"><div class="legend-color" style="background: rgb(148, 103, 189);"></div>Glass</div>
-                <div class="legend-item"><div class="legend-color" style="background: rgb(255, 127, 14);"></div>Refineries</div>
-                <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
-            </div>
-            """
     with map_col:
         chart = pdk.Deck(
             layers=[icon_layer],
@@ -1181,16 +1181,15 @@ def _mapping_chart_per_ener_feed_sites(gdf, color_choice, gdf_layer,):
             map_style=None
         )
 
+    if color_choice == "Per sector":
+        with legend_col:
+            st.markdown(legend_site_html_vertical, unsafe_allow_html=True)
+
     event = st.pydeck_chart(
         chart,
         selection_mode="single-object",
         on_select="rerun"
     )
-
-    if color_choice == "Per sector":
-        with legend_col:
-            st.markdown(legend_site_html_horizontal, unsafe_allow_html=True)
-
     selected = event.selection
     if selected and "objects" in selected:
         selected = selected["objects"].get("site_icons", [])
