@@ -140,7 +140,7 @@ color_map.update({
 
 
 def perton_page():
-    st.title("Pathway specific energy/feedstock")
+    st.subheader("Production route consumption")
 
     if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
         st.info("No selections stored yet.")
@@ -252,12 +252,11 @@ def perton_page():
 
     with col2:
         if type_of_perton == "Per route":
-            st.subheader("Energy consumption per route")
+            st.write("Energy consumption per route")
             _plot_per_route(selected_ener_feed,
                             selected_pathways, sector_selected, unit)
         if type_of_perton == "Weighted by product":
-            st.subheader("Energy consumption per product")
-            st.subheader("")
+            st.write("Energy consumption per product")
             _plot_per_pathway(selected_ener_feed,
                               selected_pathways, sectors_list, unit)
 

@@ -20,7 +20,7 @@ def select_page():
     pathway_configuration_prechoice = st.session_state.get(
         "pathway_configuration_prechoice", 0)
 
-    st.title("Pathway Builder")
+    st.subheader("Pathway Configuration")
     # creates two columns with a 4:1 width ratio
     col1, col2 = st.columns([4, 1])
 

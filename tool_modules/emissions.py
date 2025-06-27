@@ -5,6 +5,7 @@ import plotly.express as px  # Correct import for plotting
 
 
 def emissions_pathway():
+    st.subheader("CO2 emissions")
     columns = [
         "direct_emission_[tco2/t]",
         "total_emission_[tco2/t]",
@@ -118,7 +119,6 @@ def emissions_pathway():
                     if selected_product:
                         df = df[df["product"].isin(selected_product)]
                     _product_plot(df, kpi, ymax=ymax, key=f"product_plot_{i}")
-                    st.write(df)
         else:
             _all_plot(combined_df, kpi, pathways_names,
                       ymax=ymax, key="all_plot")

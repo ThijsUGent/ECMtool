@@ -5,7 +5,7 @@ import plotly.express as px
 
 
 def view_page():
-    st.title("Product selections")
+    st.subheader("Pathway visualisation")
     if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
         st.info("No selections stored yet.")
         return

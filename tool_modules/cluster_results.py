@@ -60,7 +60,7 @@ color_map.update({
 
 
 def cluster_results():
-    import streamlit as st
+    st.subheader("Cluster results")
 
     # --- Check session state ---
     if "Cluster name" not in st.session_state or "Pathway name" not in st.session_state:

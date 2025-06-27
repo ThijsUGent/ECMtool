@@ -104,6 +104,7 @@ def map_per_utlisation_rate():
 
 
 def map_per_pathway():
+    st.subheader("Maps - European scale")
     path = "data/production_site.csv"
     df = pd.read_csv(path)
 

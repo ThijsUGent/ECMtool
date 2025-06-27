@@ -29,20 +29,22 @@ tabs_choice = st.segmented_control(
 if tabs_choice == "Pathway":
     st.session_state["tool_section_prechoice"] = 0
     st.markdown("## 📘 Pathway")
-    st.page_link("pages/1_Tool.py", label="Go to Pathway section →", icon="🧭")
+    st.page_link("pages/1_RES2Go.py",
+                 label="Go to Pathway section →", icon="🧭")
     st.markdown("""This tool uses the AIDRES database to extract the energy need for each product through configurable pathways. Users can create and save multiple pathways that represent different industrial scenarios, serving as the basis for subsequent analyses.""")
     doc_pathway()
 
 elif tabs_choice == "Maps - European scale":
     st.session_state["tool_section_prechoice"] = 1
     st.markdown("## 🗺️ Maps - European scale")
-    st.page_link("pages/1_Tool.py", label="Go to Maps section →", icon="🧭")
+    st.page_link("pages/1_RES2Go.py", label="Go to Maps section →", icon="🧭")
     st.markdown("""The spatial data from AIDRES is visualised at the European scale to assess and compare the energy need across different regions. Sites are clustered based on geographical proximity and sector characteristics, helping to identify regional potentials for decarbonisation and clustering.""")
     doc_maps()
 elif tabs_choice == "Cluster - microscale":
     st.session_state["tool_section_prechoice"] = 2
     st.markdown("## 🔬 Cluster - microscale")
-    st.page_link("pages/1_Tool.py", label="Go to Cluster section →", icon="🧭")
+    st.page_link("pages/1_RES2Go.py",
+                 label="Go to Cluster section →", icon="🧭")
     st.markdown("""The microscale section allows full customisation of clusters. Users can define the annual production of multiple products within a cluster, download existing cluster configurations, or upload their own. The results can be compared visually using treemaps and sankey diagrams, supporting deeper insights into energy flows and interconnections.""")
     doc_cluster()
 elif tabs_choice == "Glossary":

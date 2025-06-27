@@ -35,6 +35,7 @@ sectors_list = [
 
 
 def cluster_configuration():
+    st.subheader("Cluster configuration")
     if "cluster_configuration_prechoice" not in st.session_state:
         st.session_state["cluster_configuration_prechoice"] = 0
     choice = st.radio("Select an option", [
