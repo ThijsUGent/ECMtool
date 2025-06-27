@@ -73,7 +73,6 @@ color_map.update({
 
 
 def _get_radius(df):
-
     top_1_val = df["total_energy"].quantile(0.99)
     top_10_val = df["total_energy"].quantile(0.90)
     mean_val = df["total_energy"].mean()
@@ -88,7 +87,16 @@ def _get_radius(df):
         else:
             return 8000
 
-    return df["total_energy"].apply(classify)
+    radius_series = df["total_energy"].apply(classify)
+
+    thresholds = {
+        f"Large (≥ {top_1_val:.0f})": 20000,
+        f"Medium (≥ {top_10_val:.0f})": 12000,
+        f"Average (≥ {mean_val:.0f})": 9700,
+        f"Small (< {mean_val:.0f})": 8000,
+    }
+
+    return radius_series, thresholds
 
 
 def map_per_utlisation_rate():
@@ -277,12 +285,36 @@ def map_per_pathway():
                 dict_gdf_clustered[pathway])
             st.markdown(
                 """*Click on a cluster centroid to see details **below the map***""")
+            st.divider()
+            # --- Toggle appears directly under the map ---
+            if "legend_show_last" not in st.session_state:
+                st.session_state["legend_show_last"] = True
+
+            st.session_state["legend_show"] = st.toggle(
+                "Show legend", value=st.session_state["legend_show_last"])
+
+            st.markdown(f"Energy clusters from {pathway} using {choice}")
             df_selected = _mapping_chart_per_ener_feed_cluster(
                 gdf_clustered_centroid, color_map, unit, gdf_layer)
+            st.divider()
         if map_choice == "site":
             df_selected = None
+            color_choice = st.radio(
+                "Site color select", ["Per cluster", "Per sector"], horizontal=True)
+            st.divider()
+
+            if "legend_show_last" not in st.session_state:
+                st.session_state["legend_show_last"] = True
+
+            st.session_state["legend_show"] = st.toggle(
+                "Show legend", value=st.session_state["legend_show_last"])
+            # TITLE
+            st.markdown(
+                f"AIDRES sites colored by {color_choice} using {choice} ")
+
             df_selected_site = _mapping_chart_per_ener_feed_sites(
-                dict_gdf_clustered[pathway], gdf_layer)
+                dict_gdf_clustered[pathway], color_choice, gdf_layer)
+            st.divider()
         if df_selected_site is not None:
             _chart_site(df_selected_site, unit)
 
@@ -726,48 +758,86 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 
 
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
+    """
+    Generates an interactive pydeck map with pie chart icons representing energy feedstock
+    distribution per cluster location on a GeoDataFrame.
 
-    # --- Prepare Data ---
+    Parameters:
+    - gdf: GeoDataFrame containing spatial points and energy feedstock data columns.
+    - color_map: dict mapping energy feed feedstock names to color hex codes.
+    - unit: string indicating unit of energy (e.g., 'GJ').
+    - gdf_layer: optional GeoDataFrame for an extra GeoJson overlay layer.
+
+    Returns:
+    - A DataFrame of the selected cluster’s data on user interaction, else None.
+    """
+
+    import base64
+    import math
+    import pydeck as pdk
+    import pandas as pd
+    import streamlit as st
+
+    # Extract keys from color_map, representing the energy feed types to display.
     type_ener_feed = list(color_map.keys())
+
+    # Identify energy columns by checking for columns containing "[" (likely units).
     energy_cols = [col for col in gdf.columns if "[" in col]
+
+    # Create a rename mapping to clean column names by removing trailing underscores and units.
     rename_map = {col: " ".join(col.split("_")[:-1]) for col in energy_cols}
     gdf = gdf.rename(columns=rename_map)
 
+    # Filter energy columns to those matching any feed type in color_map keys.
     energy_cols = [col for col in gdf.columns if any(
         col.startswith(feed.split("_")[0]) for feed in type_ener_feed)]
 
+    # Warn user if all rows have zero energy sums for the selected feeds (nothing to display).
     if (gdf[energy_cols].sum(axis=1) == 0).all():
         return st.warning("Select feedstock(s) or energy carrier(s)")
 
-    elec = energy_cols == ["electricity"]
+    # Calculate total energy per row by summing the relevant energy columns.
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
+
+    # Keep only rows where total energy is positive.
     gdf = gdf[gdf["total_energy"] > 0].copy()
+
+    # Attach unit and create rounded total energy column for display.
     gdf["unit"] = unit
     gdf["total_energy_rounded"] = gdf["total_energy"].round().astype(int)
+
+    # Extract longitude and latitude from the geometry column for mapping.
     gdf["lon"] = gdf.geometry.x
     gdf["lat"] = gdf.geometry.y
-    gdf["radius"] = _get_radius(gdf)
 
+    # Calculate radius for circle icons proportional to total energy; also get legend sizes.
+    gdf["radius"], radius_legend = _get_radius(gdf)
+
+    # Helper function to convert polar coordinates to cartesian for SVG arc drawing.
     def polar_to_cartesian(cx, cy, r, angle_deg):
         angle_rad = math.radians(angle_deg)
         return cx + r * math.cos(angle_rad), cy + r * math.sin(angle_rad)
 
+    # Generates an SVG pie chart as a base64 encoded image for each row’s energy distribution.
     def generate_pie_svg_base64(row):
         values = row[energy_cols]
         segments = [(col, val)
                     for col, val in zip(energy_cols, values) if val > 0]
         if not segments:
             return ""
+
         total = sum(val for _, val in segments)
-        cx, cy, r = 50, 50, 50
+        cx, cy, r = 50, 50, 50  # center x,y and radius for the SVG pie
         paths = []
 
+        # Single segment: draw a full circle with the color.
         if len(segments) == 1:
             col, _ = segments[0]
             colour = color_map.get(col, "#000000")
             paths.append(
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{colour}" />')
         else:
+            # Multiple segments: draw pie slices as SVG paths.
             start_angle = 0
             for col, val in segments:
                 pct = val / total
@@ -784,36 +854,39 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
         b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
         return f"data:image/svg+xml;base64,{b64}"
 
+    # Apply pie SVG generation to each row, storing the data URI in 'icon_url'.
     gdf["icon_url"] = gdf.apply(generate_pie_svg_base64, axis=1)
 
+    # Converts total energy into formatted string with unit for tooltip display.
     def build_total_html(row):
         total_formatted, unit_formatted = _energy_convert(
-            row['total_energy_rounded'], row['unit'], elec)
+            row['total_energy_rounded'], row['unit'], False)
         return f"{total_formatted} {unit_formatted}"
 
-    gdf["total_html"] = gdf.apply(build_total_html, axis=1)
-
+    # Generates the HTML snippet for the pie legend in the tooltip per data row.
     def generate_pie_legend(row):
         values = row[energy_cols]
         segments = [(col, val)
                     for col, val in zip(energy_cols, values) if val > 0]
         if not segments:
             return ""
-        total = sum(val for _, val in segments)
         legend_rows = []
-        start = 0
         for col, val in segments:
             colour = color_map.get(col, "#000000")
+            clean_label = col.replace("_", " ").replace("[gj/t]", "").strip()
             legend_rows.append(f"""
                 <div style="display: flex; align-items: center; margin-bottom: 2px;">
                     <div style="width: 12px; height: 12px; background-color: {colour}; margin-right: 6px; border-radius: 2px;"></div>
-                    <span style="font-size: 11px; color: white;">{col}</span>
+                    <span style="font-size: 11px; color: white;">{clean_label}</span>
                 </div>
             """)
         return "".join(legend_rows)
 
+    # Add total energy and pie legend HTML columns for tooltip usage.
+    gdf["total_html"] = gdf.apply(build_total_html, axis=1)
     gdf["pie_html"] = gdf.apply(generate_pie_legend, axis=1)
 
+    # Prepare icon data with URLs and dimensions for the IconLayer.
     icon_data = gdf.copy()
     icon_data["icon"] = icon_data.apply(lambda row: {
         "url": row["icon_url"],
@@ -822,21 +895,23 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
         "anchorY": 50
     }, axis=1)
 
-    # layers
+    # Layers list to hold pydeck layers.
     layers = []
 
+    # Optionally add an extra GeoJson layer if provided.
     if gdf_layer is not None and not gdf_layer.empty:
         extra_layer = pdk.Layer(
             "GeoJsonLayer",
             id="geojson_layer",
             data=gdf_layer,
-            get_fill_color=[0, 0, 255, 50],
-            get_line_color=[0, 0, 180],
+            get_fill_color=[0, 0, 255, 50],  # semi-transparent blue fill
+            get_line_color=[0, 0, 180],      # blue borders
             line_width_min_pixels=1,
             pickable=True
         )
         layers.append(extra_layer)
 
+    # Add the pie chart icons as an IconLayer.
     icon_layer = pdk.Layer(
         "IconLayer",
         id="pie_chart_icons",
@@ -849,7 +924,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
     )
     layers.append(icon_layer)
 
-    # unified tooltip
+    # Tooltip config to show total energy and a small pie legend on hover.
     tooltip = {
         "html": """
             <b>Total energy:</b> {total_html}<br/>{pie_html}
@@ -863,25 +938,104 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
         }
     }
 
+    # Define initial view state of the map (centered on mean lat/lon).
     view_state = pdk.ViewState(
         latitude=gdf["lat"].mean(),
         longitude=gdf["lon"].mean(),
         zoom=5
     )
 
-    deck = pdk.Deck(
-        layers=layers,
-        initial_view_state=view_state,
-        tooltip=tooltip,
-        map_style=None
-    )
+    # Use session state to toggle legend visibility.
 
-    event = st.pydeck_chart(
-        deck,
-        selection_mode="single-object",
-        on_select="rerun"
-    )
+    if st.session_state["legend_show"]:
+        st.session_state["legend_show_last"] = True
+        map_col, legend_col = st.columns([0.8, 0.2])
+    else:
+        map_col = st.container()
+        legend_col = None
 
+    # Render the pydeck map in the main column.
+    with map_col:
+        deck = pdk.Deck(
+            layers=layers,
+            initial_view_state=view_state,
+            tooltip=tooltip,
+            map_style=None,
+        )
+        event = st.pydeck_chart(
+            deck, selection_mode="single-object", on_select="rerun")
+
+    # Render the legend HTML in the sidebar column if visible.
+    if legend_col:
+        color_map_legend_full = {
+            "alternative fuel mixture": "#fdd49e",
+            "biomass": "#c7e9c0",
+            "biomass waste": "#a1d99b",
+            "coal": "#cccccc",
+            "coke": "#bdbdbd",
+            "crude oil": "#fdae6b",
+            "hydrogen": "#b7d7f4",
+            "methanol": "#fdd0a2",
+            "ammonia": "#d9f0a3",
+            "naphtha": "#fcbba1",
+            "natural gas": "#89a0d0",
+            "plastic mix": "#e5e5e5"
+        }
+
+        legend_full = """
+        <style>
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            color: #333;
+        }
+        .color-box {
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .note {
+            margin-top: 16px;
+            font-size: 11px;
+            font-style: italic;
+            color: #666;
+            font-family: Arial, sans-serif;
+        }
+        </style>
+        """
+
+        # Add electricity manually (if not part of color_map_legend_full)
+        legend_full += """
+        <div class="legend-item">
+        <div class="color-box" style="background-color: #ffeda0;"></div>
+        electricity 
+        </div>
+        """
+
+        # Add fuel entries
+        for fuel_legend, color_legend in color_map_legend_full.items():
+            legend_full += f"""
+        <div class="legend-item">
+        <div class="color-box" style="background-color: {color_legend};"></div>
+        {fuel_legend}
+        </div>
+        """
+
+        # Add the note
+        legend_full += """
+        <div class="note">
+        Circle size ∝ total cluster energy per year
+        </div>
+        """
+        with legend_col:
+            st.markdown(legend_full, unsafe_allow_html=True)
+
+    # If the user selects a pie chart, extract that data as a DataFrame.
     df = None
     if event.selection and "objects" in event.selection:
         cluster_objs = event.selection["objects"].get("pie_chart_icons", [])
@@ -890,7 +1044,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
     return df
 
 
-def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
+def _mapping_chart_per_ener_feed_sites(gdf, color_choice, gdf_layer,):
     import matplotlib.pyplot as plt
     import base64
     import io
@@ -898,9 +1052,6 @@ def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
     import pydeck as pdk
     import pandas as pd
     import streamlit as st
-
-    color_choice = st.radio(
-        "Site color select", ["Per cluster", "Per sector"], horizontal=True)
 
     # --- Preprocessing (your original preprocessing) ---
     type_ener_feed = list(color_map.keys())
@@ -918,7 +1069,7 @@ def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
     gdf['lon'] = gdf.geometry.x
     gdf['lat'] = gdf.geometry.y
     gdf["total_energy"] = gdf[energy_cols].sum(axis=1)
-    gdf["radius"] = _get_radius(gdf)
+    gdf["radius"], thresholds = _get_radius(gdf)
 
     # --- Cluster colouring ---
     base_cmap = plt.get_cmap("tab20")
@@ -945,38 +1096,6 @@ def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
         "Refineries":  [255, 127, 14],    # orange
         "Steel":       [127, 127, 127],   # dark grey
     }
-
-    legend_site_html_horizontal = """
-    <style>
-    .legend-horizontal {
-        font-family: sans-serif;
-        font-size: 14px;
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-top: 10px;
-        flex-wrap: wrap;
-    }
-    .legend-item {
-        display: flex;
-        align-items: center;
-    }
-    .legend-color {
-        width: 15px;
-        height: 15px;
-        margin-right: 6px;
-        flex-shrink: 0;
-    }
-    </style>
-    <div class="legend-horizontal">
-        <div class="legend-item"><div class="legend-color" style="background: rgb(102, 102, 102);"></div>Cement</div>
-        <div class="legend-item"><div class="legend-color" style="background: rgb(31, 119, 180);"></div>Chemical</div>
-        <div class="legend-item"><div class="legend-color" style="background: rgb(44, 160, 44);"></div>Fertilisers</div>
-        <div class="legend-item"><div class="legend-color" style="background: rgb(148, 103, 189);"></div>Glass</div>
-        <div class="legend-item"><div class="legend-color" style="background: rgb(255, 127, 14);"></div>Refineries</div>
-        <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
-    </div>
-    """
 
     if color_choice == "Per cluster":
         gdf["color"] = gdf["cluster"].map(cluster_color_map)
@@ -1016,13 +1135,51 @@ def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
         longitude=gdf["lon"].mean(),
         zoom=5
     )
+    if st.session_state["legend_show"]:
+        st.session_state["legend_show_last"] = True
+        map_col, legend_col = st.columns([0.8, 0.2])
+    else:
+        map_col = st.container()
+        legend_col = None
 
-    chart = pdk.Deck(
-        layers=[icon_layer],
-        initial_view_state=view_state,
-        tooltip={"text": "Cluster: {cluster}\nSite Name: {site_name}"},
-        map_style=None
-    )
+        legend_site_html_horizontal = """
+            <style>
+            .legend-horizontal {
+                font-family: sans-serif;
+                font-size: 14px;
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin-top: 10px;
+                flex-wrap: wrap;
+            }
+            .legend-item {
+                display: flex;
+                align-items: center;
+            }
+            .legend-color {
+                width: 15px;
+                height: 15px;
+                margin-right: 6px;
+                flex-shrink: 0;
+            }
+            </style>
+            <div class="legend-horizontal">
+                <div class="legend-item"><div class="legend-color" style="background: rgb(102, 102, 102);"></div>Cement</div>
+                <div class="legend-item"><div class="legend-color" style="background: rgb(31, 119, 180);"></div>Chemical</div>
+                <div class="legend-item"><div class="legend-color" style="background: rgb(44, 160, 44);"></div>Fertilisers</div>
+                <div class="legend-item"><div class="legend-color" style="background: rgb(148, 103, 189);"></div>Glass</div>
+                <div class="legend-item"><div class="legend-color" style="background: rgb(255, 127, 14);"></div>Refineries</div>
+                <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
+            </div>
+            """
+    with map_col:
+        chart = pdk.Deck(
+            layers=[icon_layer],
+            initial_view_state=view_state,
+            tooltip={"text": "Cluster: {cluster}\nSite Name: {site_name}"},
+            map_style=None
+        )
 
     event = st.pydeck_chart(
         chart,
@@ -1031,7 +1188,8 @@ def _mapping_chart_per_ener_feed_sites(gdf, gdf_layer):
     )
 
     if color_choice == "Per sector":
-        st.markdown(legend_site_html_horizontal, unsafe_allow_html=True)
+        with legend_col:
+            st.markdown(legend_site_html_horizontal, unsafe_allow_html=True)
 
     selected = event.selection
     if selected and "objects" in selected:

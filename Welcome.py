@@ -11,7 +11,7 @@ from tool_modules.cluster_configuration import *
 from tool_modules.emissions import *
 from doc.doc_pathway import *
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 logo = "images/logo_UGent_EN_RGB_2400_color.png"
 logo_side = "images/logo_side_bar.png"
 st.logo(logo_side, size="large",
