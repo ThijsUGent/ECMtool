@@ -190,7 +190,7 @@ def map_per_pathway():
                     values_feed[options_feed.index(label)] for label in selected_feed_labels
                 ]
         st.divider()
-        st.text('Edit utilisation rate per sector')
+        st.text('Edit utilisation rate sector')
         st.markdown(""" *Default value 100 %* """)
         with st.expander("Utilisation rate"):
             sector_utilization = _get_utilization_rates(sectors_all_list)
@@ -300,9 +300,9 @@ def map_per_pathway():
         if map_choice == "site":
             df_selected = None
             color_choice = st.radio(
-                "Site color select", ["Per cluster", "Per sector"], horizontal=True)
+                "Site color select", ["cluster", "sector"], horizontal=True)
             st.divider()
-            if color_choice == "Per sector":
+            if color_choice == "sector":
                 if "legend_show_last" not in st.session_state:
                     st.session_state["legend_show_last"] = True
 
@@ -760,7 +760,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
 def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
     """
     Generates an interactive pydeck map with pie chart icons representing energy feedstock
-    distribution per cluster location on a GeoDataFrame.
+    distribution cluster location on a GeoDataFrame.
 
     Parameters:
     - gdf: GeoDataFrame containing spatial points and energy feedstock data columns.
@@ -983,46 +983,46 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
         }
 
         legend_full = """
-        <style>
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-top: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            color: #333;
-        }
-        .color-box {
-            width: 12px;
-            height: 12px;
-            margin-right: 8px;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-        .note {
-            margin-top: 16px;
-            font-size: 11px;
-            font-style: italic;
-            color: #666;
-            font-family: Arial, sans-serif;
-        }
-        </style>
-        """
-
-        # Add electricity manually (if not part of color_map_legend_full)
-        legend_full += """
+            <style>
+            .legend-item {
+                display: flex;
+                align-items: center;
+                margin-top: 8px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                color: #333;
+            }
+            .color-box {
+                width: 12px;
+                height: 12px;
+                margin-right: 8px;
+                border-radius: 2px;
+                flex-shrink: 0;
+            }
+            .note {
+                margin-top: 16px;
+                font-size: 11px;
+                font-style: italic;
+                color: #666;
+                font-family: Arial, sans-serif;
+            }
+            </style>
+            """
+        # Optional entry for electricity, only if unit is GJ
+        if unit == "GJ":
+            legend_full += """
         <div class="legend-item">
-        <div class="color-box" style="background-color: #ffeda0;"></div>
-        electricity 
+            <div class="color-box" style="background-color: #ffeda0;"></div>
+            electricity
         </div>
         """
 
-        # Add fuel entries
+        # Loop through fuels
         for fuel_legend, color_legend in color_map_legend_full.items():
             legend_full += f"""
         <div class="legend-item">
-        <div class="color-box" style="background-color: {color_legend};"></div>
-        {fuel_legend}
+            <div class="color-box" style="background-color: {color_legend};"></div>
+            {fuel_legend}
         </div>
         """
 
@@ -1033,6 +1033,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
         </div>
         """
         with legend_col:
+            st.markdown("""**Legend**""")
             st.markdown(legend_full, unsafe_allow_html=True)
 
     # If the user selects a pie chart, extract that data as a DataFrame.
@@ -1097,9 +1098,9 @@ def _mapping_chart_per_ener_feed_sites(gdf, color_choice, gdf_layer,):
         "Steel":       [127, 127, 127],   # dark grey
     }
 
-    if color_choice == "Per cluster":
+    if color_choice == "cluster":
         gdf["color"] = gdf["cluster"].map(cluster_color_map)
-    elif color_choice == "Per sector":
+    elif color_choice == "sector":
         gdf["color"] = gdf["sector_name"].map(sector_cmap)
 
     def generate_base64_icon_from_color_pil(rgb, size=128):
@@ -1165,31 +1166,36 @@ def _mapping_chart_per_ener_feed_sites(gdf, color_choice, gdf_layer,):
     <div class="legend-item"><div class="legend-color" style="background: rgb(127, 127, 127);"></div>Steel</div>
 </div>
 """
-    if st.session_state["legend_show"]:
-        st.session_state["legend_show_last"] = True
+    if st.session_state["legend_show"] and color_choice == "sector":
         map_col, legend_col = st.columns([0.8, 0.2])
-
+        with map_col:
+            chart = pdk.Deck(
+                layers=[icon_layer],
+                initial_view_state=view_state,
+                tooltip={"text": "Cluster: {cluster}\nSite Name: {site_name}"},
+                map_style=None
+            )
+            event = st.pydeck_chart(
+                chart,
+                selection_mode="single-object",
+                on_select="rerun"
+            )
+        with legend_col:
+            st.markdown("""**Legend**""")
+            st.markdown(legend_site_html_vertical, unsafe_allow_html=True)
     else:
-        map_col = st.container()
-        legend_col = None
-
-    with map_col:
         chart = pdk.Deck(
             layers=[icon_layer],
             initial_view_state=view_state,
             tooltip={"text": "Cluster: {cluster}\nSite Name: {site_name}"},
             map_style=None
         )
+        event = st.pydeck_chart(
+            chart,
+            selection_mode="single-object",
+            on_select="rerun"
+        )
 
-    if color_choice == "Per sector":
-        with legend_col:
-            st.markdown(legend_site_html_vertical, unsafe_allow_html=True)
-
-    event = st.pydeck_chart(
-        chart,
-        selection_mode="single-object",
-        on_select="rerun"
-    )
     selected = event.selection
     if selected and "objects" in selected:
         selected = selected["objects"].get("site_icons", [])
@@ -1274,17 +1280,17 @@ def _cluster_gdf_dbscan(gdf, min_samples, radius):
     return gdf
 
 
-# Summarise clusters values and aggreagatge in centroid per cluster (exculde -1)
+# Summarise clusters values and aggreagatge in centroid cluster (exculde -1)
 def _summarise_clusters_by_centroid(gdf_clustered):
     """
     Summarise clustered GeoDataFrame by computing the centroid of each cluster
-    and summing all type_ener_feed columns per cluster.
+    and summing all type_ener_feed columns cluster.
 
     Parameters:
     gdf_clustered (GeoDataFrame): Clustered GeoDataFrame with 'cluster' column.
 
     Returns:
-    GeoDataFrame: GeoDataFrame with one row per cluster, centroid location, and
+    GeoDataFrame: GeoDataFrame with one row cluster, centroid location, and
                   sum of all type_ener_feed columns.
     """
     if 'cluster' not in gdf_clustered.columns:
