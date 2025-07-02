@@ -246,9 +246,6 @@ def _other_sectors_product(df_template=None):
     df_edit = st.data_editor(
         df_template,
         num_rows="dynamic",
-        column_config={
-            "route_weight": st.column_config.NumberColumn("route_weight")
-        },
         hide_index=True,
         column_order=column_df,
         use_container_width=True,
@@ -357,6 +354,8 @@ def preconfigure_path(df, columns_to_show_selection):
                 else:
                     st.warning(
                         f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+    if any("No-AIDRES products" in key.split("_")[0] for key in dict_routes_selected.keys()):
+        modified = True
     # Check if modified or not
     if modified:
         pathway_name += " modified"
@@ -455,9 +454,13 @@ def upload_path(df, columns_to_show_selection):
                     for i, sector in enumerate(selected_sectors):
                         with tabs[i]:
                             if sector == "No-AIDRES products":
-                                dict_other = _other_sectors_product(
-                                    df_template=df_upload
-                                )
+                                if "No-AIDRES products" not in df_upload["sector_name"].values:
+                                    dict_other = _other_sectors_product(
+                                    )
+                                else:
+                                    dict_other = _other_sectors_product(
+                                        df_template=df_upload
+                                    )
                                 dict_routes_selected.update(dict_other)
                                 continue
                             all_products = sorted(
@@ -518,7 +521,10 @@ def upload_path(df, columns_to_show_selection):
                         else:
                             st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
-    # Check if modified or not
-    if modified is True:
-        pathway_name += " modified"
+
+        if any("No-AIDRES products" in key.split("_")[0] for key in dict_routes_selected.keys()):
+            modified = True
+        # Check if modified or not
+        if modified is True:
+            pathway_name += " modified"
     return dict_routes_selected, pathway_name
