@@ -26,7 +26,7 @@ AIDRES develops and integrates:
 
 ## Project Objectives
 
-- Assess how industrial demand for heat, electricity, and feedstocks can shift to **renewable sources**.
+- Assess how industrial demand for electricity, and energy feedstocks can shift to **renewable sources**.
 - Develop pathways combining **electrification**, **green hydrogen**, **carbon capture**, and **process innovation**.
 - Map and match **local renewable energy supply potential** with **industrial energy demand**.
 - Support EU industrial and energy policy with spatially explicit data and techno-economic insights.
@@ -42,12 +42,11 @@ The AIDRES project is coordinated by **EnergyVille/VITO** and involves contribut
 
 - KU Leuven  
 - Ghent University  
-- EPFL  
-- DECHEMA  
-- ICAMCyL  
-- Quantis  
-- ENEA  
-- and other European institutions
+- EPFL
+- Energyville
+- VUB
+- Vito
+- DECHEMA
 
 ---
 
