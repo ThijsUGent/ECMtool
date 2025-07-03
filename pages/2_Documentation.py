@@ -48,8 +48,7 @@ elif tabs_choice == "Cluster - microscale":
     st.markdown("""The microscale section allows full customisation of clusters. Users can define the annual production of multiple products within a cluster, download existing cluster configurations, or upload their own. The results can be compared visually using treemaps and sankey diagrams, supporting deeper insights into energy flows and interconnections.""")
     doc_cluster()
 elif tabs_choice == "Glossary":
-    st.header("Glossary")
-
+    st.markdown("##📚 Glossary")
     st.markdown("""
     The glossary provides definitions and explanations of key terms and concepts used throughout the tool.  
     It ensures users have a clear understanding of the terminology related to energy systems, industrial symbiosis, and the AIDRES database.
@@ -63,8 +62,8 @@ elif tabs_choice == "Glossary":
     An industrial sector within the AIDRES scope, defined using **NACE codes**.
 
     **Pathway**  
-    A combination of one or more production routes, covering one or several sectors and products, aggregated to represent a specific technology or decarbonisation scenario.
+    A combination of one or more production routes, covering one or several sectors and products, aggregated to represent specific technologies scenario.
 
     **Cluster**  
-    A group of industrial sites located in close spatial proximity. In the *cluster – micro scale* section, a cluster may be considered an isolated system and may follow its own decarbonisation pathway.
+    A group of industrial sites located in close spatial proximity. In the *cluster – micro scale* section, a cluster may be considered an isolated system and may follow its own  pathway.
     """)
