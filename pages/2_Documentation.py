@@ -48,7 +48,7 @@ elif tabs_choice == "Cluster - microscale":
     st.markdown("""The microscale section allows full customisation of clusters. Users can define the annual production of multiple products within a cluster, download existing cluster configurations, or upload their own. The results can be compared visually using treemaps and sankey diagrams, supporting deeper insights into energy flows and interconnections.""")
     doc_cluster()
 elif tabs_choice == "Glossary":
-    st.markdown("##📚 Glossary")
+    st.markdown("## 📚 Glossary")
     st.markdown("""
     The glossary provides definitions and explanations of key terms and concepts used throughout the tool.  
     It ensures users have a clear understanding of the terminology related to energy systems, industrial symbiosis, and the AIDRES database.
