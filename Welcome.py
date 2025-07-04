@@ -31,4 +31,10 @@ st.page_link("pages/2_Documentation.py",
 st.page_link("pages/1_RES2Go.py", label="RES2Go",
              icon="⚙️", use_container_width=True)
 
+st.markdown("""
+    *Contact us:*
+    """)
+st.page_link("pages/6_Contact.py", label="Contact",
+             icon="✉️", use_container_width=True)
+
 # st.video
