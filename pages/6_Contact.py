@@ -6,21 +6,16 @@ st.markdown(
 
 st.markdown(
     """
-    <form action="https://formsubmit.co/duvillard.t@gmail.com" method="POST">
-  <!-- disable captcha -->
-  <input type="hidden" name="_captcha" value="false">
+<form id="contactform" action="https://formsubmit.io/send/thijs.duvillard@ugent.be" method="POST">
+    <input name="name" type="text" id="name">
+    <input name="email" type="email" id="email">
+    <textarea name="comment" id="comment" rows="3"></textarea>
 
-  <label for="name">Name</label>
-  <input type="text" name="name" required>
+    <input name="_formsubmit_id" type="text" style="display:none">
 
-  <label for="email">Email</label>
-  <input type="email" name="email" required>
-
-  <label for="message">Message</label>
-  <textarea name="message" required></textarea>
-
-  <button type="submit">Send</button>
+    <input value="Submit" type="submit">
 </form>
+
     """,
     unsafe_allow_html=True
 )
