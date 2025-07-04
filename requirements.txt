@@ -16,5 +16,4 @@ python-dotenv
 streamlit
 streamlit-antd-components
 plotly
-psycopg2-binary
-sqlalchemy
+st-gsheets-connection
