@@ -10,7 +10,7 @@ st.markdown(
     """
     Please fill out the form below to send us a message.
 
-    _🔒 All information you submit will remain confidential and will not be shared with third parties._
+    _🔒 All information you submit will remain confidential and will not be shared. 🔒_
     """
 )
 
