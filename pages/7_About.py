@@ -9,7 +9,11 @@ st.logo(logo_side, size="large",
 
 # Header and descriptions
 st.header("About")
-st.markdown("This tool is part of the **PIECE** project. Developed by the **ECM research group** at Ghent University (UGent).")
+st.markdown(
+    "This tool results from the **PIECE** project, developed by the **ECM research group** at ([Energy and cluster management (ECM) — Department of ElectroMechanical, Systems and Metal Engineering — Ghent University)](https://www.ugent.be/ea/emsme/en/research/ensy/energy-systems-clusters/ecm)).")
 
-st.header("Beta versions")
+st.header("Beta version")
 st.markdown("**RES2Go beta 2.0** – July 2025")
+
+st.markdown(
+    "[RES2Go beta](https://ugent-ecm-res2gobeta.streamlit.app/ECM)")

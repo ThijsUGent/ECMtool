@@ -12,7 +12,7 @@ def doc_pathway():
     subsection = st.radio("Subsection:", [
         "Pathway configuration",
         "Production route consumption",
-        "CO2 Emissions",
+        "CO2 emissions",
         "Pathway visualisation",
     ], index=tool_subsection_prechoice, horizontal=True)
 

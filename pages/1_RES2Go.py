@@ -37,7 +37,7 @@ tool_subsection_prechoice_from_doc = st.session_state.get(
 
 # Sidebar tool section
 tool_section_choices = ["Pathway",
-                        "Maps - European scale", "Cluster - microscale"]
+                        "Maps - European scale", "Cluster - micro scale"]
 tool_section_index = min(tool_section_prechoice, len(tool_section_choices) - 1)
 
 tool_section = st.sidebar.radio(
@@ -101,7 +101,7 @@ elif tool_section == "Maps - European scale":
         map_per_pathway()
 
 # === CLUSTER ===
-elif tool_section == "Cluster - microscale":
+elif tool_section == "Cluster - micro scale":
     st.session_state["tool_section_prechoice_doc"] = 2
 
     cluster_choices = ["Cluster configuration", "Cluster results"]

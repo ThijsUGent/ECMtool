@@ -26,7 +26,7 @@ def select_page():
 
     with col1:
         st.write(
-            "Choose to select a ready-made path, upload or create your path")
+            "Select a ready-made path, upload another path or create your path")
 
         # Load and clean the per-ton configuration data
         perton_path = "data/perton_all.csv"
@@ -83,7 +83,7 @@ def select_page():
                 dict_routes_selected[key] = dict_routes_selected[key][dict_routes_selected[key]
                                                                       ["route_weight"] != 0]
         st.markdown(
-            "**Don't forget to save the pathway before proceeding.**")
+            "**Save the pathway before proceeding.**")
         with col2:
             st.text("Save the pathway")
 

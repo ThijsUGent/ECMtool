@@ -7,13 +7,14 @@ st.logo(logo_side, size="large",
 st.title("Acknowledgements")
 
 st.markdown("""
-We would like to express our sincere gratitude to all those who made this project possible.
+We express our sincere gratitude to all who made the PIECE project possible.
 
 **Special thanks to:**
 
-- The **Directorate-General for Energy (DG ENER)** for coordinating and managing the AIDRES project.  
-- **DG REGIO** and the **Industrial Advisory Board** for their valuable and constructive feedback throughout the process.  
-- **Université de Nantes**, **Ghent University**, and the **Erasmus+ programme** for supporting the internship that contributed to this work.  
-- **Prof. Ir. Greet Van Eetvelde**, for her dedicated supervision at Ghent University and the continued guidance and support from the **ECM research team**.  
-- **Nienke Dhont** and **Thijs Duvillard** for their commitment to the development of the RES2Go platform, which supported the implementation of the project’s outcomes.
+- The Directorate-General for Energy **(DG ENER)** for coordinating and managing the AIDRES project.  
+- **DG REGIO** and the **Industrial Board** for their valuable and constructive feedback throughout the process.  
+- **Nantes Université**, Ghent University (**UGent**), and the **Erasmus+** programme for supporting the internship of **Thijs Duvillard** that contributed to this work.  
+- Supervisors: ir Ninek Dhondt and prof. Greet Van Eetvelde
+
+**Ghent, July 2025**
 """)
