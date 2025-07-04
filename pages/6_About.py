@@ -11,5 +11,5 @@ st.logo(logo_side, size="large",
 st.header("About")
 st.markdown("This tool is part of the **PIECE** project. Developed by the **ECM research group** at Ghent University (UGent).")
 
-st.header("Versions")
-st.markdown("**RES2Go 2.0** – 3 July 2025")
+st.header("Beta versions")
+st.markdown("**RES2Go beta 2.0** – July 2025")
