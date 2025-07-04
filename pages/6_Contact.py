@@ -33,8 +33,7 @@ def insert_message(name, email, subject, message):
 
 
 # -- UI
-st.title("📬 Contact Us")
-st.markdown("We'd love to hear your thoughts about **RES2Go beta**.")
+st.title("Contact Us")
 
 with st.form("contact_form"):
     name = st.text_input("Name *")
