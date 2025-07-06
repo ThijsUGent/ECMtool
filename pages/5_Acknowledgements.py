@@ -14,7 +14,7 @@ We express our sincere gratitude to all who made the PIECE project possible.
 - The Directorate-General for Energy **(DG ENER)** for coordinating and managing the AIDRES project.  
 - **DG REGIO** and the **Industrial Board** for their valuable and constructive feedback throughout the process.  
 - **Nantes Université**, Ghent University (**UGent**), and the **Erasmus+** programme for supporting the internship of **Thijs Duvillard** that contributed to this work.  
-- Supervisors: ir Ninek Dhondt and prof. Greet Van Eetvelde
+- Supervisors: ir Nienke Dhondt and prof. Greet Van Eetvelde
 
 **Ghent, July 2025**
 """)
