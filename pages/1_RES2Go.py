@@ -9,6 +9,7 @@ from tool_modules.maps import *
 from tool_modules.cluster_results import *
 from tool_modules.cluster_configuration import *
 from tool_modules.emissions import *
+from tool_modules.profile_load import *
 
 st.set_page_config(layout="wide")
 
@@ -87,7 +88,7 @@ if tool_section == "Pathway":
 elif tool_section == "Maps - European scale":
     st.session_state["tool_section_prechoice_doc"] = 1
 
-    maps_choices = ["Map per pathway"]
+    maps_choices = ["Map per pathway", "Profile load matching"]
     maps_index = 0  # Only one item, safe default
 
     maps_subsection = st.sidebar.radio(
@@ -99,6 +100,8 @@ elif tool_section == "Maps - European scale":
 
     if maps_subsection == "Map per pathway":
         map_per_pathway()
+    if maps_subsection == "Profile load matching":
+        profile_load()
 
 # === CLUSTER ===
 elif tool_section == "Cluster - micro scale":
