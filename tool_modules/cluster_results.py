@@ -179,6 +179,8 @@ def _display_cluster_pathway(column_pathway_pairs, cluster, selected_columns, un
                 _sankey(df_perton, unit, cluster, selected_pathway, col)
             elif chart == "Treemap":
                 _tree_map(df_perton, cluster, selected_pathway, col)
+            with st.expander("Show sites consumption"):
+                st.write(df_perton)
 
 
 def _energy_convert(value, unit, elec=False):
