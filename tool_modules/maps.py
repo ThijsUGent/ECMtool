@@ -205,11 +205,44 @@ def map_per_pathway():
                 dict_gdf[pathway] = gdf_prod_x_perton
                 pathways_names_filtered.append(pathway)
         st.divider()
+
         choice = st.radio("Cluster method", [
                           "DBSCAN", "KMEANS", "KMEANS (weighted)"])
         min_samples, radius, n_cluster = _edit_clustering(choice)
         dict_gdf_clustered = {}
+        st.divider()
+        with st.expander("Choose countries"):
+            country_dict = {
+                "Belgium": "BE",
+                "Netherlands": "NL",
+                "France": "FR",
+                "Germany": "DE",
+                "Luxembourg": "LU",
+                "Italy": "IT",
+                "Spain": "ES",
+                "Austria": "AT",
+                "Denmark": "DK",
+                "Sweden": "SE",
+                "Norway": "NO",
+                "Finland": "FI",
+                "Ireland": "IE",
+                "Portugal": "PT",
+                "Poland": "PL",
+                "Czech Republic": "CZ",
+                "Hungary": "HU",
+                "Greece": "GR"
+            }
+
+            selected_countries = st.multiselect(
+                "Select countries", list(country_dict.keys()))
+            country_codes = [country_dict[country]
+                             for country in selected_countries]
+
         for pathway in pathways_names_filtered:
+            if country_codes:
+                dict_gdf[pathway] = dict_gdf[pathway][
+                    dict_gdf[pathway]["nuts3_code"].str[:2].isin(country_codes)
+                ]
             gdf_clustered = _run_clustering(
                 choice, dict_gdf[pathway], min_samples, radius, n_cluster)
             dict_gdf_clustered[pathway] = gdf_clustered
@@ -253,6 +286,7 @@ def map_per_pathway():
                 map_choice = "cluster centroid"
                 toggle_text = "Cluster centroid "
             with col_layers:
+
                 gdf_layer = None
                 layer_options = None
                 # Define display labels and internal values
@@ -279,6 +313,7 @@ def map_per_pathway():
             dict_gdf_clustered[pathway].copy()
             dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway][dict_gdf_clustered[pathway]
                                                                       ["aidres_sector_name"].isin(sector_seleted)]
+            mapped_sites = dict_gdf_clustered[pathway]
 
         if map_choice == "cluster centroid":
             df_selected_site = None
@@ -317,6 +352,7 @@ def map_per_pathway():
                 dict_gdf_clustered[pathway], color_choice, gdf_layer)
             st.divider()
         if df_selected_site is not None:
+
             _chart_site(df_selected_site, unit)
 
         if df_selected is not None:
@@ -332,87 +368,8 @@ def map_per_pathway():
                 st.text(
                     "It is possible to download the cluster configuration to use it in the cluster tool")
                 if df_filtered_cluster is not None:
-                    if (df_filtered_cluster["cluster"] == 0).any():
-                        # FOR NIENKE FILE
 
-                        # Dictionary of European countries and their codes
-                        country_dict = {
-                            "Belgium": "BE",
-                            "Netherlands": "NL",
-                            "France": "FR",
-                            "Germany": "DE",
-                            "Luxembourg": "LU",
-                            "Italy": "IT",
-                            "Spain": "ES",
-                            "Austria": "AT",
-                            "Denmark": "DK",
-                            "Sweden": "SE",
-                            "Norway": "NO",
-                            "Finland": "FI",
-                            "Ireland": "IE",
-                            "Portugal": "PT",
-                            "Poland": "PL",
-                            "Czech Republic": "CZ",
-                            "Hungary": "HU",
-                            "Greece": "GR"
-                        }
-
-                        # Let the user choose the country by name
-                        selected_country = st.selectbox(
-                            "Select a country", list(country_dict.keys()))
-
-                        # Get the corresponding code
-                        country = country_dict[selected_country]
-                        # Filter + select columns
-                        columns_nienke = [
-                            "site_name",
-                            "aidres_sector_name",
-                            "geometry",
-                            "electricity_[gj/t] ton",
-                            "alternative_fuel_mixture_[gj/t] ton",
-                            "biomass_[gj/t] ton",
-                            "biomass_waste_[gj/t] ton",
-                            "coal_[gj/t] ton",
-                            "coke_[gj/t] ton",
-                            "crude_oil_[gj/t] ton",
-                            "hydrogen_[gj/t] ton",
-                            "methanol_[gj/t] ton",
-                            "ammonia_[gj/t] ton",
-                            "naphtha_[gj/t] ton",
-                            "natural_gas_[gj/t] ton",
-                            "plastic_mix_[gj/t] ton",
-                            "total_energy",
-                            "lon",
-                            "lat"
-                        ]
-                        # Filter by NUTS3 and select columns
-                        df_filtered_nienke = df_filtered_cluster[df_filtered_cluster["nuts3_code"].str.contains(
-                            country)]
-                        df_filtered_nienke = df_filtered_nienke[columns_nienke]
-
-                        # Convert geometry from WKT if needed
-                        if isinstance(df_filtered_nienke["geometry"].iloc[0], str):
-                            df_filtered_nienke["geometry"] = df_filtered_nienke["geometry"].apply(
-                                wkt.loads)
-
-                        # Convert to GeoDataFrame
-                        gdf = gpd.GeoDataFrame(
-                            df_filtered_nienke, geometry="geometry", crs="EPSG:4326")
-
-                        # Write GeoJSON to BytesIO
-                        buffer = io.BytesIO()
-                        gdf.to_file(buffer, driver="GeoJSON")
-                        buffer.seek(0)  # reset pointer
-
-                        # Streamlit download button
-                        st.download_button(
-                            label="Download GeoJSON for PyPSA",
-                            data=buffer,
-                            file_name=f"{pathway}_{country}.geojson",
-                            mime="application/geo+json"
-                        )
-
-                        ############
+                    ############
                     df_filtered_cluster["unit"] = unit
                     df_filtered_cluster_show = df_filtered_cluster[[
                         "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "unit", "nuts3_code", "geometry"]]
@@ -434,6 +391,78 @@ def map_per_pathway():
                         file_name=f"ECM_Tool_{cluster}_cluster.txt",
                         mime='text/plain'
                     )
+        with st.expander("File sites energy consumption (GEOJson PyPSA compatible)"):
+
+            cols = [
+                "site_name",
+                "nuts3_code",
+                "geometry",
+                "aidres_sector_name",
+                "production_route_name",
+                "prod_cap",
+                "prod_rate",
+                "utilization_rate",
+                "product_name",
+                "electricity_[gj/t] ton",
+                "alternative_fuel_mixture_[gj/t] ton",
+                "biomass_[gj/t] ton",
+                "biomass_waste_[gj/t] ton",
+                "coal_[gj/t] ton",
+                "coke_[gj/t] ton",
+                "crude_oil_[gj/t] ton",
+                "hydrogen_[gj/t] ton",
+                "methanol_[gj/t] ton",
+                "ammonia_[gj/t] ton",
+                "naphtha_[gj/t] ton",
+                "natural_gas_[gj/t] ton",
+                "plastic_mix_[gj/t] ton",
+                "sector_name",
+                "total_energy"
+            ]
+            st.write(mapped_sites[cols])
+            # Filter + select columns
+            columns_nienke = [
+                "site_name",
+                "geometry",
+                "electricity_[gj/t] ton",
+                "alternative_fuel_mixture_[gj/t] ton",
+                "biomass_[gj/t] ton",
+                "biomass_waste_[gj/t] ton",
+                "coal_[gj/t] ton",
+                "coke_[gj/t] ton",
+                "crude_oil_[gj/t] ton",
+                "hydrogen_[gj/t] ton",
+                "methanol_[gj/t] ton",
+                "ammonia_[gj/t] ton",
+                "naphtha_[gj/t] ton",
+                "natural_gas_[gj/t] ton",
+                "plastic_mix_[gj/t] ton",
+                "total_energy",
+            ]
+            # select columns
+            mapped_sites = mapped_sites[columns_nienke]
+
+            # Convert geometry from WKT if needed
+            if isinstance(mapped_sites["geometry"].iloc[0], str):
+                mapped_sites["geometry"] = mapped_sites["geometry"].apply(
+                    wkt.loads)
+
+            # Convert to GeoDataFrame
+            gdf = gpd.GeoDataFrame(
+                mapped_sites, geometry="geometry", crs="EPSG:4326")
+
+            # Write GeoJSON to BytesIO
+            buffer = io.BytesIO()
+            gdf.to_file(buffer, driver="GeoJSON")
+            buffer.seek(0)  # reset pointer
+
+            # Streamlit download button
+            st.download_button(
+                label="Download GeoJSON for PyPSA",
+                data=buffer,
+                file_name=f"{pathway}_{'_'.join(country_codes)}.geojson",
+                mime="application/geo+json"
+            )
 
 
 def _chart_site(df, unit):
