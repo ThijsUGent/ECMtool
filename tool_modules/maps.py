@@ -242,6 +242,10 @@ def map_per_pathway():
                              for country in selected_countries]
 
         for pathway in pathways_names_filtered:
+            dict_gdf[pathway] = dict_gdf[pathway].rename(
+                columns={
+                    "direct_emission_[tco2/t] ton": "Direct CO2 emissions (t)"}
+            )
             if country_codes:
                 dict_gdf[pathway] = dict_gdf[pathway][
                     dict_gdf[pathway]["nuts3_code"].str[:2].isin(country_codes)
@@ -317,18 +321,13 @@ def map_per_pathway():
 
             dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway][dict_gdf_clustered[pathway]
                                                                       ["aidres_sector_name"].isin(sector_seleted)]
-            dict_gdf_clustered[pathway] = dict_gdf_clustered[pathway].rename(
-                columns={
-                    "direct_emission_[tco2/t] ton": "Direct CO2 emissions (t)"}
-            )
+
             mapped_sites = dict_gdf_clustered[pathway]
 
         if map_choice == "cluster centroid":
             df_selected_site = None
-            st.write(dict_gdf_clustered[pathway])
             gdf_clustered_centroid = _summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
-            st.write(gdf_clustered_centroid)
             st.markdown(
                 """*Click on a cluster centroid to see details **below the map***""")
             st.divider()
@@ -382,7 +381,7 @@ def map_per_pathway():
                     ############
                     df_filtered_cluster["unit"] = unit
                     df_filtered_cluster_show = df_filtered_cluster[[
-                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "unit", "nuts3_code", "geometry"]]
+                        "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "Direct CO2 emissions (t)", "unit", "nuts3_code", "geometry"]]
 
                     df_filtered_cluster_show.columns = [
                         col.replace(
@@ -428,7 +427,8 @@ def map_per_pathway():
                 "natural_gas_[gj/t] ton",
                 "plastic_mix_[gj/t] ton",
                 "sector_name",
-                "total_energy"
+                "total_energy",
+                "Direct CO2 emissions (t)"
             ]
             st.write(mapped_sites[cols])
             # Filter + select columns
@@ -1299,8 +1299,9 @@ def _edit_clustering(choice):
                 unsafe_allow_html=True
             )
 
-            limit = st.slider("Emissions threshold (ktCO₂)",
-                              1, 100, step=1, value=10)
+            limit = st.slider("Emissions threshold (KtCO₂)",
+                              100, 15000, step=10, value=1000)
+            limit = limit * 1e3  # Convert ktCO₂ to tCO₂ for consistency
         redistribute = st.radio(
             "Redistribute undersized clusters?", ["No", "Yes"], index=0)
 
