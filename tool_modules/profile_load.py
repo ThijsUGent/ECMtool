@@ -179,12 +179,12 @@ def elmas_data():
         "data/ELMAS_dataset/Time_series_18_clusters.csv", sep=";")
     df_cluster_NACE = pd.read_csv(
         "data/ELMAS_dataset/Clusters_after_manual_reclassification.csv", sep=";")
-    df_nace = pd.read_csv(
-        "data/ELMAS_dataset/NACE_classification.csv", sep=';')
+    # df_nace = pd.read_csv(
+    #     "data/ELMAS_dataset/NACE_classification.csv", sep=';')
 
-    df_cluster_NACE["Class_description"] = df_cluster_NACE["Class"].map(
-        df_nace.set_index("Class")["Class_description"]
-    )
+    # df_cluster_NACE["Class_description"] = df_cluster_NACE["Class"].map(
+    #     df_nace.set_index("Class")["Class_description"]
+    # )
     # st.write(df_cluster_NACE[df_cluster_NACE["Cluster"] == 1])
     df_time_cluster["Industry"] = df_time_cluster["1"].str.replace(
         ",", ".", regex=False).astype(float)
