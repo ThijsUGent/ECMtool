@@ -268,10 +268,27 @@ def preconfigure_path(df, columns_to_show_selection):
     dict_routes_selected = {}
     # Preconfigure mix option
     eumix_options = ["EU-MIX-2018", "EU-MIX-2030",
-                     "EU-MIX-2040", "EU-MIX-2050"]
+                     "EU-MIX-2040", "EU-MIX-2050", "IEA Net Zero Emissions Scenario", "Electrification ECM Scenario"]
 
-    selected_mix = st.radio(
-        "Select an EU-MIX scenario", eumix_options, index=0)
+    # Load CSV with scenario info
+    pathway_description = pd.read_csv("data/premade_pathway_description.csv")
+
+    # Extract list of scenarios for the radio options
+    eumix_options = pathway_description["Scenario"].tolist()
+
+    # Radio button for scenario selection
+    selected_mix = st.radio("Select an EU-MIX scenario",
+                            eumix_options, index=0)
+
+    # Filter dataframe for the selected scenario info
+    info = pathway_description[pathway_description["Scenario"]
+                               == selected_mix].iloc[0]
+
+    # Display info below the radio buttons
+    st.markdown(f"**Source:** {info['Source']}")
+    st.markdown(f"**Description:** {info['Description']}")
+    if pd.notna(info["Reference"]) and info["Reference"].strip():
+        st.markdown(f"**Reference:** {info['Reference']}")
     pathway_name = selected_mix
     if pathway_name in eumix_options:  # only for aidre_eu_mix
         df_upload = eu_mix_configuration_id_weight(

@@ -12,6 +12,7 @@ from tool_modules.emissions import *
 from tool_modules.profile_load import *
 from tool_modules.supply import *
 
+
 st.set_page_config(layout="wide")
 
 # Logos
