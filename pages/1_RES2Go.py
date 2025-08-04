@@ -10,6 +10,7 @@ from tool_modules.cluster_results import *
 from tool_modules.cluster_configuration import *
 from tool_modules.emissions import *
 from tool_modules.profile_load import *
+from tool_modules.supply import *
 
 st.set_page_config(layout="wide")
 
@@ -38,7 +39,7 @@ tool_subsection_prechoice_from_doc = st.session_state.get(
 
 # Sidebar tool section
 tool_section_choices = ["Pathway",
-                        "Maps - European scale", "Cluster - micro scale", "Profile load"]
+                        "Maps - European scale", "Cluster - micro scale", "Profile load", "Low Carbon supply"]
 tool_section_index = min(tool_section_prechoice, len(tool_section_choices) - 1)
 
 tool_section = st.sidebar.radio(
@@ -127,3 +128,8 @@ elif tool_section == "Cluster - micro scale":
 elif tool_section == "Profile load":
     st.session_state["tool_section_prechoice_doc"] = 3
     profile_load()
+
+# === Low Carbon supply ===
+elif tool_section == "Low Carbon supply":
+    st.session_state["tool_section_prechoice_doc"] = 4
+    supply()

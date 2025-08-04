@@ -41,9 +41,9 @@ def profile_load():
         country=country, NUTS2=NUTS2, energy_volume=energy_volume_wind, year=year)
 
     df_solar = pd.DataFrame(
-        {"Time": pd.to_datetime(solar_time), "Solar": solar_profile})
+        {"Time": pd.to_datetime(solar_time) if solar_time is not None else pd.Series(dtype='datetime64[ns]'), "Solar": solar_profile})
     df_wind = pd.DataFrame(
-        {"Time": pd.to_datetime(wind_time), "Wind": wind_profile})
+        {"Time": pd.to_datetime(wind_time) if wind_time is not None else pd.Series(dtype='datetime64[ns]'), "Wind": wind_profile})
 
     if df_solar.empty or df_wind.empty:
         st.warning("No solar or wind data for selected year.")
@@ -190,7 +190,7 @@ def elmas_data():
         ",", ".", regex=False).astype(float)
     profile = df_time_cluster["Industry"].values
     time = df_time_cluster["Time"]
-    profile = profile * 0.0036  # kWh to GJ
+    profile = np.array(profile, dtype=float) * 0.0036  # kWh to GJ
     return profile, time, "ELMAS baseyear 2018"
 
 
