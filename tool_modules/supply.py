@@ -314,3 +314,48 @@ def supply():
 
     # Show map
     mapping(filtered_gdf, resource)
+    powerplant_map()
+
+
+def powerplant_map():
+    # Load the powerplant data
+    path = "data/EnergyMonitor/EU_powerplants_February_2025.csv"
+    df = pd.read_csv(path)
+
+    # Filter out rows with missing coordinates
+    df = df.dropna(subset=["Latitude", "Longitude"])
+
+    # Optional: set tooltips
+    tooltip = {
+        "html": "<b>{Name}</b><br/>Fuel: {Fuel_type}<br/>Capacity: {Capacity_MW} MW",
+        "style": {
+            "backgroundColor": "white",
+            "color": "black",
+            "fontSize": "12px"
+        }
+    }
+
+    # Define the pydeck layer
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=df,
+        get_position='[Longitude, Latitude]',
+        get_radius=10000,  # in meters, adjust as needed
+        get_fill_color='[200, 30, 0, 160]',  # RGBA
+        pickable=True
+    )
+
+    # Define the view
+    view_state = pdk.ViewState(
+        latitude=df["Latitude"].mean(),
+        longitude=df["Longitude"].mean(),
+        zoom=4,
+        pitch=0
+    )
+
+    # Render the map
+    st.pydeck_chart(pdk.Deck(
+        layers=[layer],
+        initial_view_state=view_state,
+        tooltip=tooltip
+    ))
