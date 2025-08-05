@@ -154,7 +154,7 @@ def profile_load():
             hoverinfo="skip"  # optional: avoid hover clutter
         ))
     fig.update_layout(
-        title=f"Chemical profile load : PoA+ & {data_source}",
+        title=f"Port of Antwerp profile load EU-MIX-2050 (106 TWh) with RES BE23",
         xaxis_title="Time",
         yaxis_title="Energy (MW)",
         legend_title="Profile",
@@ -312,7 +312,7 @@ def enspreso_extract(NUTS2, level):
         f"solar_production_twh_{level}_total"
     ]
     df = pd.read_csv(
-        "data/Energy_production/ENSPRESO_Integrated_NUTS2_Data2021.csv", usecols=col)
+        "data/ENSPRESO/ENSPRESO_Integrated_NUTS2_Data2021.csv", usecols=col)
     df_filter = df[df["nuts2_code"] == NUTS2]
 
     if df_filter.empty:

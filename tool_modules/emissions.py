@@ -128,8 +128,10 @@ def _product_plot(df, kpi, ymax=None, key=None):
     if df.empty:
         st.write("No data to plot.")
         return
+    title = kpi.split('_[')[0].replace(
+        '_', ' ').capitalize() + " CO2"
     plot_data = df.groupby("product")[kpi].mean().reset_index()
-    fig = px.bar(plot_data, x="product", y=kpi, title=f"{kpi} by Product",
+    fig = px.bar(plot_data, x="product", y=kpi, title=f"{title} by tonne of product EU-MIX-2050",
                  labels={"product": "Product", kpi: kpi})
     if ymax:
         fig.update_yaxes(range=[0, ymax])
