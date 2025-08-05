@@ -267,8 +267,8 @@ def preconfigure_path(df, columns_to_show_selection):
     # Dictionary to collect selected routes per sector-product
     dict_routes_selected = {}
     # Preconfigure mix option
-    eumix_options = ["EU-MIX-2018", "EU-MIX-2030",
-                     "EU-MIX-2040", "EU-MIX-2050", "IEA Net Zero Emissions Scenario", "Electrification ECM Scenario"]
+    premade_choice = ["EU-MIX-2018", "EU-MIX-2030",
+                      "EU-MIX-2040", "EU-MIX-2050", "IEA Net Zero Emissions Scenario", "Electrification ECM Scenario"]
     AIDRES_options = ["EU-MIX-2018", "EU-MIX-2030",
                       "EU-MIX-2040", "EU-MIX-2050",]
 
@@ -276,27 +276,36 @@ def preconfigure_path(df, columns_to_show_selection):
     pathway_description = pd.read_csv("data/premade_pathway_description.csv")
 
     # Extract list of scenarios for the radio options
-    eumix_options = pathway_description["Scenario"].tolist()
+    premade_choice = pathway_description["Scenario"].tolist()
 
     # Radio button for scenario selection
     selected_mix = st.radio("Select an EU-MIX scenario",
-                            eumix_options, index=0)
+                            premade_choice, index=0)
 
     # Filter dataframe for the selected scenario info
     info = pathway_description[pathway_description["Scenario"]
                                == selected_mix].iloc[0]
 
     # Display info below the radio buttons
-    st.markdown(f"**Source:** {info['Source']}")
     st.markdown(f"**Description:** {info['Description']}")
     if pd.notna(info["Reference"]) and info["Reference"].strip():
-        st.markdown(f"**Reference:** {info['Reference']}")
+        if "ReferenceURL" in info and pd.notna(info["ReferenceURL"]) and info["ReferenceURL"].strip():
+            st.markdown(
+                f"**Reference:** [{info['Reference']}]({info['ReferenceURL']})")
+        else:
+            st.markdown(f"**Reference:** {info['Reference']}")
     pathway_name = selected_mix
     if pathway_name in AIDRES_options:  # only for aidre_eu_mix
         df_upload = eu_mix_configuration_id_weight(
             pathway_name)
     else:  # for custom pathway
-        df_upload =
+        if pathway_name == "IEA Net Zero Emissions Scenario":
+            file_premade = pd.read_csv(
+                "data/premade_pathway/ECM_Tool_IEA-NET-ZERO-2050.txt")
+        elif pathway_name == "Electrification ECM Scenario":
+            file_premade = pd.read_csv(
+                "data/premade_pathway/ECM_Tool_EU-MIX-2050-ELECTRIFICATION.txt")
+        df_upload = file_premade
     # modified verification intialisation
     modified = False
     # List creation to displai tabs and configuration visualisation/modification
