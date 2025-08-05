@@ -269,6 +269,8 @@ def preconfigure_path(df, columns_to_show_selection):
     # Preconfigure mix option
     eumix_options = ["EU-MIX-2018", "EU-MIX-2030",
                      "EU-MIX-2040", "EU-MIX-2050", "IEA Net Zero Emissions Scenario", "Electrification ECM Scenario"]
+    AIDRES_options = ["EU-MIX-2018", "EU-MIX-2030",
+                      "EU-MIX-2040", "EU-MIX-2050",]
 
     # Load CSV with scenario info
     pathway_description = pd.read_csv("data/premade_pathway_description.csv")
@@ -290,9 +292,11 @@ def preconfigure_path(df, columns_to_show_selection):
     if pd.notna(info["Reference"]) and info["Reference"].strip():
         st.markdown(f"**Reference:** {info['Reference']}")
     pathway_name = selected_mix
-    if pathway_name in eumix_options:  # only for aidre_eu_mix
+    if pathway_name in AIDRES_options:  # only for aidre_eu_mix
         df_upload = eu_mix_configuration_id_weight(
             pathway_name)
+    else:  # for custom pathway
+        df_upload =
     # modified verification intialisation
     modified = False
     # List creation to displai tabs and configuration visualisation/modification
