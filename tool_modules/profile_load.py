@@ -50,8 +50,9 @@ def profile_load():
         return
 
     # Load industry profile
-    data_source = st.radio("Select industry data source", ["ELMAS", "JERICHO"])
-    if data_source == "JERICHO":
+    data_source = st.radio("Select industry data source", [
+                           "ELMAS", "JERICHO-E"])
+    if data_source == "JERICHO-E":
         sector = st.radio(
             "Select a sector",
             [
@@ -154,7 +155,7 @@ def profile_load():
             hoverinfo="skip"  # optional: avoid hover clutter
         ))
     fig.update_layout(
-        title=f"Port of Antwerp profile load EU-MIX-2050 (106 TWh) with RES BE23",
+        title=f"Profile load with {data_source} Dataset",
         xaxis_title="Time",
         yaxis_title="Energy (MW)",
         legend_title="Profile",

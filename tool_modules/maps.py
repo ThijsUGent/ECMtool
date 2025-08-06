@@ -373,6 +373,14 @@ def map_per_pathway():
                 _tree_map(df_selected)
             elif chart == "Sankey Diagram":
                 _sankey(df_filtered_cluster, unit)
+            # CO2
+            if isinstance(df_selected, pd.DataFrame) and not df_selected.empty:
+                emission = df_selected["Direct CO2 emissions (t)"].iloc[0]
+                emission, unit = _energy_convert(emission, "t", elec=False)
+                st.write(
+                    f"Direct CO2 emissions per annum : {emission:.2f} {unit}")
+
+            st.write()
             with st.expander("Show  or download sites within the cluster"):
                 st.text(
                     "It is possible to download the cluster configuration to use it in the cluster tool")

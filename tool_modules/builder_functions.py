@@ -273,7 +273,8 @@ def preconfigure_path(df, columns_to_show_selection):
                       "EU-MIX-2040", "EU-MIX-2050",]
 
     # Load CSV with scenario info
-    pathway_description = pd.read_csv("data/premade_pathway_description.csv")
+    pathway_description = pd.read_csv(
+        "data/premade_pathway/premade_pathway_description.csv")
 
     # Extract list of scenarios for the radio options
     premade_choice = pathway_description["Scenario"].tolist()
