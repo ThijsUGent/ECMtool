@@ -14,6 +14,9 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+sectors_list_all = ["Cement", "Chemical",
+                    "Fertilisers", "Glass", "Refineries", "Steel"]
+
 
 def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection, sector, product, mode_key, df_upload=None):
     """
@@ -318,7 +321,7 @@ def preconfigure_path(df, columns_to_show_selection):
     unique_sectors = sorted(filtered_df["sector_name"].unique())
     if st.checkbox("Edit pathway"):
         sectors_list = unique_sectors.copy()
-        sectors_list_plus_other = sectors_list + ["No-AIDRES products"]
+        sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
         selected_sectors = st.pills(
             "Select sector(s) to configure",
             sectors_list_plus_other,
@@ -451,8 +454,7 @@ def create_path(df, columns_to_show_selection):
 
 def upload_path(df, columns_to_show_selection):
     # Initialisiation list of sectors
-    sectors_list_all = ["Cement", "Chemical",
-                        "Fertilisers", "Glass", "Refineries", "Steel"]
+
     sectors_list_plus_other = sectors_list_all.copy()
     # Add "No-AIDRES products" option
     sectors_list_plus_other.append("No-AIDRES products")
