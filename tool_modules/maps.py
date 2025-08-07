@@ -389,10 +389,22 @@ def map_per_pathway():
                     set([code[:-1] for code in NUTS3_cluster_list]))
 
                 # Step 3: Display result
+                # Step 4: Suggest next available cluster name
+                existing_names = st.session_state.saved_clusters["name"].tolist(
+                )
+                cluster_index = 1
+                while True:
+                    suggested_name = f"Cluster {cluster_index} ({pathway})"
+                    if suggested_name not in existing_names:
+                        break
+                    cluster_index += 1
+
                 st.write(
-                    "Save this cluster and analyse it in profile load section")
+                    "Save this cluster and analyse it in the profile load section")
                 cluster_name = st.text_input(
-                    "Enter a name for the cluster", value=f"Cluster 1 ({pathway})")
+                    "Enter a name for the cluster", value=suggested_name)
+                if cluster_name in existing_names:
+                    st.warning("Cluster already exist")
 
                 # Ensure session_state key exists
                 if "saved_clusters" not in st.session_state:

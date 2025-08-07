@@ -8,164 +8,154 @@ import plotly.express as px
 
 def profile_load():
     st.title("Industrial Load Profile Matching")
-
     st.subheader("Renewable Profile Selection")
 
-    country = st.text_input("Enter country code (e.g. 'DE')", value="BE")
-    NUTS2 = st.text_input("Or enter NUTS2 region code (e.g. 'BE23')")
-    scenario = st.select_slider("ENSPRESO Scenario", ["high", "medium", "low"])
+    # col1 = selection and parameters, col2 = plot
+    col1, col2 = st.columns([1, 2])
 
-    if not country and not NUTS2:
-        st.warning("Please enter either a country code or a NUTS2 code.")
-        return
-    if NUTS2:
-        energy_vol_enspreso_solar, energy_vol_enspreso_wind = enspreso_extract(
-            NUTS2, scenario)
-    else:
-        energy_vol_enspreso_solar = None
-        energy_vol_enspreso_wind = None
-    solar_default = float(
-        energy_vol_enspreso_solar) if energy_vol_enspreso_solar else 1.0
-    wind_default = float(
-        energy_vol_enspreso_wind) if energy_vol_enspreso_wind else 1.0
-    energy_volume_solar = st.number_input(
-        "Set solar energy volume (TWh)", value=solar_default)
-    energy_volume_wind = st.number_input(
-        "Set onshore wind energy volume (TWh)", value=wind_default)
-    year = st.slider("Select year for solar/wind data", 1986, 2015, 2015)
+    with col1:
+        method_choice = st.radio("Select the method to assess electricity profile", [
+                                 "From cluster", "Manual input"])
+        cluster_selected = []
+        NUTS2_list = []
+        if method_choice == "From cluster":
+            if "saved_clusters" in st.session_state:
+                df_cluster = st.session_state["saved_clusters"]
+                cluster_names = df_cluster["name"].unique()
+                cluster_selected = st.multiselect(
+                    'Cluster name', cluster_names)
+                NUTS2_list = [
+                    nuts for name in cluster_selected for nuts in df_cluster[df_cluster["name"] == name]["NUTS2"].values[0]]
+            else:
+                st.warning("No saved clusters in session state.")
+        else:
+            country = st.text_input(
+                "Enter country code (e.g. 'DE')", value="BE")
+            NUTS2 = st.text_input("Or enter NUTS2 region code (e.g. 'BE23')")
+            if NUTS2:
+                NUTS2_list = [NUTS2]
+            else:
+                NUTS2_list = []
 
-    # Load generation profiles
-    solar_profile, solar_time = solar_generation(
-        country=country, NUTS2=NUTS2, energy_volume=energy_volume_solar, year=year)
-    wind_profile, wind_time = onshore_generation(
-        country=country, NUTS2=NUTS2, energy_volume=energy_volume_wind, year=year)
+        scenario = st.select_slider(
+            "ENSPRESO Scenario", ["high", "medium", "low"])
+
+        if not NUTS2_list:
+            st.warning("Please enter at least one NUTS2 region.")
+            return
+
+        # Use first NUTS2 to set default volumes
+        solar_default, wind_default = enspreso_extract(NUTS2_list[0], scenario)
+        solar_default = float(solar_default) if solar_default else 1.0
+        wind_default = float(wind_default) if wind_default else 1.0
+
+        energy_volume_solar = st.number_input(
+            "Set solar energy volume (TWh)", value=solar_default)
+        energy_volume_wind = st.number_input(
+            "Set onshore wind energy volume (TWh)", value=wind_default)
+        year = st.slider("Select year for solar/wind data", 1986, 2015, 2015)
+
+        data_source = st.radio("Select industry data source", [
+                               "ELMAS", "JERICHO-E"])
+        if data_source == "JERICHO-E":
+            sector = st.radio(
+                "Select a sector",
+                ["Food", "Glass, Ceramics, Stones", "Automotive", "Chemical",
+                    "Paper", "Mechanical Engineering", "Iron, Steel", "Other Industry"]
+            )
+            profile, time, label = jericho_data(sector)
+        else:
+            profile, time, label = elmas_data()
+
+        if profile is None or time is None:
+            return
+
+        unit = st.radio("Target energy unit", ["GJ", "TWh"], index=1)
+        target_energy = st.number_input(
+            f"Set target energy ({unit})", value=3.6)
+        if unit == "TWh":
+            target_energy *= 3.6e6  # Convert to GJ
+
+        # Scale industry profile
+        industry_scaled = scale_profile_to_energy(
+            profile, target_energy) / 3.6  # to MWh
+        start_time = pd.Timestamp(f"{year}-01-01 00:00")
+        time_year = pd.date_range(
+            start=start_time, periods=len(time), freq="H")
+        df_industry = pd.DataFrame(
+            {"Time": time_year, "Industry": industry_scaled})
+
+    # Fetch solar and wind profiles
+    solar_profile, solar_time = solar_generation(country=country if method_choice == "Manual input" else None,
+                                                 NUTS2=NUTS2_list, energy_volume=energy_volume_solar, year=year)
+    wind_profile, wind_time = onshore_generation(country=country if method_choice == "Manual input" else None,
+                                                 NUTS2=NUTS2_list, energy_volume=energy_volume_wind, year=year)
 
     df_solar = pd.DataFrame(
-        {"Time": pd.to_datetime(solar_time) if solar_time is not None else pd.Series(dtype='datetime64[ns]'), "Solar": solar_profile})
+        {"Time": pd.to_datetime(solar_time), "Solar": solar_profile})
     df_wind = pd.DataFrame(
-        {"Time": pd.to_datetime(wind_time) if wind_time is not None else pd.Series(dtype='datetime64[ns]'), "Wind": wind_profile})
+        {"Time": pd.to_datetime(wind_time), "Wind": wind_profile})
 
-    if df_solar.empty or df_wind.empty:
-        st.warning("No solar or wind data for selected year.")
+    if df_solar.empty or df_wind.empty or df_industry.empty:
+        st.warning("Missing data. Check selection and inputs.")
         return
 
-    # Load industry profile
-    data_source = st.radio("Select industry data source", [
-                           "ELMAS", "JERICHO-E"])
-    if data_source == "JERICHO-E":
-        sector = st.radio(
-            "Select a sector",
-            [
-                "Food", "Glass, Ceramics, Stones", "Automotive", "Chemical",
-                "Paper", "Mechanical Engineering", "Iron, Steel", "Other Industry"
-            ]
-        )
-        profile, time, label = jericho_data(sector)
-    else:
-        profile, time, label = elmas_data()
-
-    if profile is None or time is None:
-        return
-
-    # Create hourly datetime index starting at Jan 1 of selected year
-    start_time = pd.Timestamp(f"{year}-01-01 00:00")
-    time_year = pd.date_range(
-        start=start_time, periods=len(time), freq="H")
-    df_industry = pd.DataFrame(
-        {"Time": time_year, "Industry": profile})
-
-    if df_industry.empty:
-        st.warning("No industry data available for selected year.")
-        return
-
-    unit = st.radio("Target energy unit", ["GJ", "TWh"], index=1)
-    target_energy = st.number_input(
-        f"Set target energy ({unit})", value=3.6)
-    if unit == "TWh":
-        target_energy *= 3.6e6  # Convert to GJ
-
-    # Scale and convert to MWh
-    industry_scaled = scale_profile_to_energy(
-        df_industry["Industry"].values, target_energy) / 3.6
-    df_industry["Industry"] = industry_scaled
-
-    # Merge all on Time (inner join to keep common times)
-    df = df_solar.merge(df_wind, on="Time", how="inner")
-    df = df.merge(df_industry[["Time", "Industry"]], on="Time", how="inner")
-
-    # Compute renewables and mismatch
+    # Merge all
+    df = df_solar.merge(df_wind, on="Time").merge(df_industry, on="Time")
     df["Renewables"] = df["Solar"] + df["Wind"]
     df["Mismatch"] = np.where(
         df["Renewables"] < df["Industry"], df["Industry"] - df["Renewables"], 0)
-    energy_deficit_TWh = df["Mismatch"].sum() / 1e6  # MWh → TWh
+    energy_deficit_TWh = df["Mismatch"].sum() / 1e6
 
-    st.markdown(
-        f"### ⚠️ Total Energy Deficit in {year}: **{energy_deficit_TWh:.2f} TWh**")
+    with col2:
+        st.markdown(
+            f"### ⚠️ Total Energy Deficit in {year}: **{energy_deficit_TWh:.2f} TWh**")
 
-    # Curve selection checkboxes
-    st.markdown("### 📊 Select Curves to Display")
-    show_industry = st.checkbox("Show Industry", value=True)
-    show_renewables = st.checkbox("Show Renewables (Total)", value=True)
-    show_solar = st.checkbox("Show Solar", value=False)
-    show_wind = st.checkbox("Show Wind", value=False)
-    show_deficit = st.checkbox("Show Deficit (Mismatch)", value=False)
+        # Curve selection
+        st.markdown("### 📊 Select Curves to Display")
+        show_industry = st.checkbox("Show Industry", value=True)
+        show_renewables = st.checkbox("Show Renewables (Total)", value=True)
+        show_solar = st.checkbox("Show Solar", value=False)
+        show_wind = st.checkbox("Show Wind", value=False)
+        show_deficit = st.checkbox("Show Deficit (Mismatch)", value=False)
 
-    y_columns = []
-    line_colors = {}
+        y_columns = []
+        line_colors = {}
 
-    if show_renewables:
-        y_columns.append("Renewables")
-        line_colors["Renewables"] = "green"
-    if show_solar:
-        y_columns.append("Solar")
-        line_colors["Solar"] = "orange"  # yellow/orange
-    if show_wind:
-        y_columns.append("Wind")
-        line_colors["Wind"] = "blue"
-    if show_industry:
-        y_columns.append("Industry")
-        line_colors["Industry"] = "grey"
+        if show_renewables:
+            y_columns.append("Renewables")
+            line_colors["Renewables"] = "green"
+        if show_solar:
+            y_columns.append("Solar")
+            line_colors["Solar"] = "orange"
+        if show_wind:
+            y_columns.append("Wind")
+            line_colors["Wind"] = "blue"
+        if show_industry:
+            y_columns.append("Industry")
+            line_colors["Industry"] = "grey"
 
-    if not y_columns and not show_deficit:
-        st.warning("Please select at least one curve to display.")
-        return
+        fig = go.Figure()
+        for col in y_columns:
+            fig.add_trace(go.Scatter(
+                x=df["Time"], y=df[col], mode="lines", name=col, line=dict(color=line_colors[col])))
 
-    fig = go.Figure()
+        if show_deficit:
+            fig.add_trace(go.Scatter(
+                x=df["Time"], y=df["Mismatch"],
+                name="Deficit", mode="lines", line=dict(width=0),
+                fill="tozeroy", fillcolor="rgba(255,0,0,0.3)", hoverinfo="skip"
+            ))
 
-    # Add selected energy profiles with colors
-    for col in y_columns:
-        fig.add_trace(go.Scatter(
-            x=df["Time"],
-            y=df[col],
-            mode="lines",
-            name=col,
-            line=dict(color=line_colors[col])
-        ))
-
-    # Add deficit area if selected
-    if show_deficit:
-        fig.add_trace(go.Scatter(
-            x=df["Time"],
-            y=df["Mismatch"],
-            name="Deficit",
-            mode="lines",
-            line=dict(width=0),
-            fill="tozeroy",
-            fillcolor="rgba(255,0,0,0.3)",
-            hoverinfo="skip"  # optional: avoid hover clutter
-        ))
-    fig.update_layout(
-        title=f"Profile load with {data_source} Dataset",
-        xaxis_title="Time",
-        yaxis_title="Energy (MW)",
-        legend_title="Profile",
-        xaxis=dict(
-            tickformat="%H:%M<br>%d %b",  # hour:minute, line break, day and abbreviated month
-            tickmode="auto"
+        fig.update_layout(
+            title=f"Profile load with {data_source} Dataset",
+            xaxis_title="Time",
+            yaxis_title="Energy (MW)",
+            legend_title="Profile",
+            xaxis=dict(tickformat="%H:%M<br>%d %b", tickmode="auto")
         )
-    )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def scale_profile_to_energy(profile, target_energy):
@@ -211,27 +201,44 @@ def jericho_data(sector):
     return profile, time, sector
 
 
-def solar_generation(country, energy_volume, year, NUTS2=None):
+def onshore_generation(country, energy_volume, NUTS2=None, year=None):
     if NUTS2:
-        data_source = pd.read_csv("data/EMHIRES/EMHIRES_PVGIS_TSh_CF_n2_19862015_reformatt.csv",
-                                  usecols=["time_step", NUTS2])
+        data_source = pd.read_csv(
+            "data/EMHIRES/EMHIRES_WIND_NUTS2_June2019.csv",
+            usecols=["Time step"] +
+            (NUTS2 if isinstance(NUTS2, list) else [NUTS2])
+        )
         start_date = pd.Timestamp("1986-01-01")
         data_source["Date"] = pd.to_timedelta(
-            data_source["time_step"], unit="h") + start_date
-        country = NUTS2
+            data_source["Time step"], unit="h") + start_date
+        data_source["Date"] = pd.to_datetime(data_source["Date"])
+        data_source = data_source[data_source["Date"].dt.year == year]
+
+        if isinstance(NUTS2, list):
+            missing = [r for r in NUTS2 if r not in data_source.columns]
+            if missing:
+                st.warning(f"NUTS2 region(s) not found: {', '.join(missing)}")
+                return None, None
+            capacity_factor_profile = data_source[NUTS2].sum(axis=1)
+        else:
+            if NUTS2 not in data_source.columns:
+                st.warning("NUTS2 region not found in dataset.")
+                return None, None
+            capacity_factor_profile = data_source[NUTS2]
+
     else:
         data_source = pd.read_csv(
-            "data/EMHIRES/EMHIRESPV_TSh_CF_Country_19862015.csv", usecols=["Date", country])
+            "data/EMHIRES/EMHIRES_WIND_COUNTRY_June2019.csv", usecols=["Date", country])
         data_source["Date"] = pd.to_datetime(
-            data_source["Date"], dayfirst=True)
-    data_source = data_source[data_source["Date"].dt.year == year]
+            data_source["Date"], format="%d/%m/%Y")
+        num_rows = len(data_source)
+        hours = list(range(24)) * (num_rows // 24)
+        if len(hours) < num_rows:
+            hours += list(range(num_rows - len(hours)))
+        data_source["Date"] = data_source["Date"] + \
+            pd.to_timedelta(hours, unit="h")
+        data_source = data_source[data_source["Date"].dt.year == year]
 
-    if NUTS2:
-        if NUTS2 not in data_source.columns:
-            st.warning("NUTS2 region not found in dataset.")
-            return None, None
-        capacity_factor_profile = data_source[NUTS2]
-    else:
         if country not in data_source.columns:
             st.warning("Country not found in dataset.")
             return None, None
@@ -239,51 +246,44 @@ def solar_generation(country, energy_volume, year, NUTS2=None):
 
     profile = capacity_factor_profile * \
         (energy_volume * 1e6 / capacity_factor_profile.sum())
-
     time = data_source["Date"]
 
     return profile, time
 
 
-def onshore_generation(country, energy_volume, NUTS2=None, year=None):
+def solar_generation(country, energy_volume, year, NUTS2=None):
     if NUTS2:
-        data_source = pd.read_csv(
-            "data/EMHIRES/EMHIRES_WIND_NUTS2_June2019.csv", usecols=["Time step", NUTS2])
+        emirhre = pd.read_csv(
+            "data/EMHIRES/EMHIRES_PVGIS_TSh_CF_n2_19862015_reformatt.csv")
+        st.write(emirhre)
+        data_source = pd.read_csv("data/EMHIRES/EMHIRES_PVGIS_TSh_CF_n2_19862015_reformatt.csv",
+                                  usecols=["time_step"] + (NUTS2 if isinstance(NUTS2, list) else [NUTS2]))
         start_date = pd.Timestamp("1986-01-01")
+
         data_source["Date"] = pd.to_timedelta(
-            data_source["Time step"], unit="h") + start_date
+            data_source["time_step"], unit="h") + start_date
+
+        data_source = data_source[data_source["Date"].dt.year == year]
+
+        # Sum across multiple NUTS2 regions
+        if isinstance(NUTS2, list):
+            missing = [r for r in NUTS2 if r not in data_source.columns]
+            if missing:
+                st.warning(f"NUTS2 region(s) not found: {', '.join(missing)}")
+                return None, None
+            capacity_factor_profile = data_source[NUTS2].sum(axis=1)
+        else:
+            if NUTS2 not in data_source.columns:
+                st.warning("NUTS2 region not found in dataset.")
+                return None, None
+            capacity_factor_profile = data_source[NUTS2]
+
+    else:
+        data_source = pd.read_csv(
+            "data/EMHIRES/EMHIRESPV_TSh_CF_Country_19862015.csv", usecols=["Date", country])
         data_source["Date"] = pd.to_datetime(
             data_source["Date"], dayfirst=True)
         data_source = data_source[data_source["Date"].dt.year == year]
-        country = NUTS2
-
-    else:
-        data_source = pd.read_csv(
-            "data/EMHIRES/EMHIRES_WIND_COUNTRY_June2019.csv", usecols=["Date", country])
-
-        # Format: "dd/mm/yyyy"
-        data_source["Date"] = pd.to_datetime(
-            data_source["Date"], format="%d/%m/%Y")
-
-        # Add an hourly time per row (0 to 23, repeated for each day)
-        num_rows = len(data_source)
-        hours = list(range(24)) * (num_rows // 24)
-
-        # Ensure list matches dataframe length
-        if len(hours) < num_rows:
-            hours += list(range(num_rows - len(hours)))
-
-        # Add 'DateTime' with hourly resolution
-        data_source["Date"] = data_source["Date"] + \
-            pd.to_timedelta(hours, unit="h")
-        # Select year
-        data_source = data_source[data_source["Date"].dt.year == year]
-    if NUTS2:
-        if NUTS2 not in data_source.columns:
-            st.warning("NUTS2 region not found in dataset.")
-            return None, None
-        capacity_factor_profile = data_source[NUTS2]
-    else:
         if country not in data_source.columns:
             st.warning("Country not found in dataset.")
             return None, None
@@ -291,10 +291,6 @@ def onshore_generation(country, energy_volume, NUTS2=None, year=None):
 
     profile = capacity_factor_profile * \
         (energy_volume * 1e6 / capacity_factor_profile.sum())
-
-    # Assume 'Date' is the start date (e.g. 2015-01-01), same for all rows
-    start_date = pd.to_datetime(data_source["Date"].iloc[0])
-
     time = data_source["Date"]
 
     return profile, time
