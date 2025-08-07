@@ -379,9 +379,46 @@ def map_per_pathway():
                 emission, unit = energy_convert(emission, "t", elec=False)
                 st.write(
                     f"Direct CO2 emissions per annum : {emission:.2f} {unit}")
+            with st.expander("Time profiles"):
+                # Step 1: Extract NUTS3 codes
+                NUTS3_cluster_list = df_filtered_cluster["nuts3_code"].unique(
+                ).tolist()
 
-            NUTS3_cluster_list = df_filtered_cluster["nuts3_code"].unique().tolist()
-            st.write(NUTS3_cluster_list)
+                # Step 2: Derive NUTS2 codes by removing last character from each NUTS3 code
+                NUTS2_cluster_list = list(
+                    set([code[:-1] for code in NUTS3_cluster_list]))
+
+                # Step 3: Display result
+                st.write(
+                    "Save this cluster and analyse it in profile load section")
+                cluster_name = st.text_input(
+                    "Enter a name for the cluster", value=f"Cluster 1 ({pathway})")
+
+                # Ensure session_state key exists
+                if "saved_clusters" not in st.session_state:
+                    st.session_state.saved_clusters = pd.DataFrame(
+                        columns=["name", "NUTS2", "electricity", "unit"])
+
+                # Button to save current selection
+                if st.button("💾 Save this cluster"):
+                    # Create one-row DataFrame with list in NUTS2 column
+                    new_data = pd.DataFrame([{
+                        "name": cluster_name,
+                        "NUTS2": NUTS2_cluster_list,
+                        "electricity": df_selected["electricity"].iloc[0] if isinstance(df_selected["electricity"], pd.Series) else df_selected["electricity"],
+                        "unit": df_selected["unit"].iloc[0] if isinstance(df_selected["unit"], pd.Series) else df_selected["unit"]
+                    }])
+
+                    # Append to session_state
+                    st.session_state.saved_clusters = pd.concat(
+                        [st.session_state.saved_clusters, new_data], ignore_index=True)
+
+                    st.success("Configuration saved!")
+
+                # Optional: Display saved configurations
+                if not st.session_state.saved_clusters.empty:
+                    st.subheader("Saved Configurations")
+                    st.dataframe(st.session_state.saved_clusters)
             with st.expander("Show or download sites within the cluster"):
                 st.text(
                     "It is possible to download the cluster configuration to use it in the cluster tool")
