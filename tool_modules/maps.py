@@ -388,7 +388,10 @@ def map_per_pathway():
                 NUTS2_cluster_list = list(
                     set([code[:-1] for code in NUTS3_cluster_list]))
 
-                # Step 3: Display result
+                # Ensure session_state key exists
+                if "saved_clusters" not in st.session_state:
+                    st.session_state.saved_clusters = pd.DataFrame(
+                        columns=["name", "NUTS2", "electricity", "unit"])
                 # Step 4: Suggest next available cluster name
                 existing_names = st.session_state.saved_clusters["name"].tolist(
                 )
@@ -405,11 +408,6 @@ def map_per_pathway():
                     "Enter a name for the cluster", value=suggested_name)
                 if cluster_name in existing_names:
                     st.warning("Cluster already exist")
-
-                # Ensure session_state key exists
-                if "saved_clusters" not in st.session_state:
-                    st.session_state.saved_clusters = pd.DataFrame(
-                        columns=["name", "NUTS2", "electricity", "unit"])
 
                 # Button to save current selection
                 if st.button("💾 Save this cluster"):
