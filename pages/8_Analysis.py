@@ -77,7 +77,7 @@ def mapping(gdf, layer, RES_source, title):
     import json
     import pydeck as pdk
     import streamlit as st
-    st.write(title)
+    st.markdown(f"#### {title}")
     # Define colour scales
     color_scale = {
         "wind": [0, 112, 192],        # blue
@@ -110,7 +110,6 @@ def mapping(gdf, layer, RES_source, title):
         )
         nuts_gdf = nuts_gdf.copy()
         nuts_gdf = nuts_gdf[["cluster_index", "RES", "nuts2_geometry"]]
-        st.write(nuts_gdf)
 
         nuts_gdf = nuts_gdf.set_geometry("nuts2_geometry")
 
@@ -444,8 +443,8 @@ for df, name in zip(list_df, scenario_names):
 
     RES_source = st.radio("Select RES source:", [
                           "wind", "solar", "solar+wind"], key=f'res_source{name}')
-
-    enspreso_level = st.radio("ENSPRESO level", ["high", "medium", "low"])
+    enspreso_level = st.radio(
+        "ENSPRESO level", ["high", "medium", "low"], key=f'level{name}')
 
     gdf = industrialindex(enspreso_level, grouped, RES_source)
 
@@ -457,4 +456,3 @@ for df, name in zip(list_df, scenario_names):
     title = f"Map of industrial clusters with {name} and ENSPRESO {enspreso_level}"
 
     mapping(gdf, layer, RES_source, title)
-    enspreso_level = st.radio("ENSPRESO level", ["high,"medium","low"])
