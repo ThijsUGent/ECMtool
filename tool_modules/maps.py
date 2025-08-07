@@ -380,14 +380,16 @@ def map_per_pathway():
                 st.write(
                     f"Direct CO2 emissions per annum : {emission:.2f} {unit}")
 
-            st.write()
-            with st.expander("Show  or download sites within the cluster"):
+            NUTS3_cluster_list = df_filtered_cluster["nuts3_code"].unique().tolist()
+            st.write(NUTS3_cluster_list)
+            with st.expander("Show or download sites within the cluster"):
                 st.text(
                     "It is possible to download the cluster configuration to use it in the cluster tool")
                 if df_filtered_cluster is not None:
 
                     ############
                     df_filtered_cluster["unit"] = unit
+                    st.write(df_filtered_cluster)
                     df_filtered_cluster_show = df_filtered_cluster[[
                         "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "Direct CO2 emissions (t)", "unit", "nuts3_code", "geometry"]]
 
@@ -396,7 +398,6 @@ def map_per_pathway():
                             'utilization rate', 'utilisation rate').replace("site_name", "site").replace("aidres_sector_name", "sector").replace("product_name", "product").replace("prod_cap", "production capacity (kt)").replace("prod_rate", "production rate (kt)").replace("total_energy", "total energy")
                         for col in df_filtered_cluster_show.columns
                     ]
-                    st.write(df_filtered_cluster_show)
                     df_filtered_cluster_download = df_filtered_cluster_show[[
                         "site", "sector", "product", "production capacity (kt)"]]
                     cluster = st.text_input(
