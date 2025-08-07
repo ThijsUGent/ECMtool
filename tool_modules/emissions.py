@@ -118,20 +118,21 @@ def emissions_pathway():
                     df = pathway_emission[name]
                     if selected_product:
                         df = df[df["product"].isin(selected_product)]
-                    _product_plot(df, kpi, ymax=ymax, key=f"product_plot_{i}")
+                    _product_plot(df, kpi, ymax=ymax,
+                                  key=f"product_plot_{i}", name=name)
         else:
             _all_plot(combined_df, kpi, pathways_names,
                       ymax=ymax, key="all_plot")
 
 
-def _product_plot(df, kpi, ymax=None, key=None):
+def _product_plot(df, kpi, ymax=None, key=None, name=None):
     if df.empty:
         st.write("No data to plot.")
         return
     title = kpi.split('_[')[0].replace(
         '_', ' ').capitalize() + " CO2"
     plot_data = df.groupby("product")[kpi].mean().reset_index()
-    fig = px.bar(plot_data, x="product", y=kpi, title=f"{title} by tonne of product EU-MIX-2050",
+    fig = px.bar(plot_data, x="product", y=kpi, title=f"{title} by tonne of product {name}",
                  labels={"product": "Product", kpi: kpi})
     if ymax:
         fig.update_yaxes(range=[0, ymax])

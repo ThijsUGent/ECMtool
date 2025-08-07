@@ -20,7 +20,8 @@ from sklearn.preprocessing import StandardScaler
 
 from geopy.distance import geodesic
 
-from tool_modules.cluster import *
+from tool_modules.clustering import *
+from tool_modules.convert import *
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -137,10 +138,36 @@ def map_per_pathway():
     col1, col2 = st.columns([1, 4])  # 3:1 ratio, left wide, right narrow
 
     with col1:
+
+        with st.expander("Choose countries"):
+            country_dict = {
+                "Belgium": "BE",
+                "Netherlands": "NL",
+                "France": "FR",
+                "Germany": "DE",
+                "Luxembourg": "LU",
+                "Italy": "IT",
+                "Spain": "ES",
+                "Austria": "AT",
+                "Denmark": "DK",
+                "Sweden": "SE",
+                "Norway": "NO",
+                "Finland": "FI",
+                "Ireland": "IE",
+                "Portugal": "PT",
+                "Poland": "PL",
+                "Czech Republic": "CZ",
+                "Hungary": "HU",
+                "Greece": "GR"
+            }
+
+            selected_countries = st.multiselect(
+                "Select countries", list(country_dict.keys()))
+            country_codes = [country_dict[country]
+                             for country in selected_countries]
         unit = st.radio(
             "Select unit", ["GJ", "t"], horizontal=True
         )
-
         if unit == "GJ":
             with st.expander("Energy carriers"):
                 select_all_energy = st.toggle(
@@ -210,37 +237,10 @@ def map_per_pathway():
         st.divider()
 
         choice = st.radio("Cluster method", [
-                          "DBSCAN", "KMEANS threshold", "KMEANS", "KMEANS (weighted)"], horizontal=True)
-        param1, param2, param3, param4 = _edit_clustering(choice)
+                          "DBSCAN", "KMEANS"], horizontal=True)
+        choice_cluster, param1, param2, param4 = _edit_clustering(
+            choice)
         dict_gdf_clustered = {}
-        st.divider()
-        with st.expander("Choose countries"):
-            country_dict = {
-                "Belgium": "BE",
-                "Netherlands": "NL",
-                "France": "FR",
-                "Germany": "DE",
-                "Luxembourg": "LU",
-                "Italy": "IT",
-                "Spain": "ES",
-                "Austria": "AT",
-                "Denmark": "DK",
-                "Sweden": "SE",
-                "Norway": "NO",
-                "Finland": "FI",
-                "Ireland": "IE",
-                "Portugal": "PT",
-                "Poland": "PL",
-                "Czech Republic": "CZ",
-                "Hungary": "HU",
-                "Greece": "GR"
-            }
-
-            selected_countries = st.multiselect(
-                "Select countries", list(country_dict.keys()))
-            country_codes = [country_dict[country]
-                             for country in selected_countries]
-
         for pathway in pathways_names_filtered:
             dict_gdf[pathway] = dict_gdf[pathway].rename(
                 columns={
@@ -251,7 +251,7 @@ def map_per_pathway():
                     dict_gdf[pathway]["nuts3_code"].str[:2].isin(country_codes)
                 ]
             gdf_clustered = _run_clustering(
-                choice, dict_gdf[pathway], param1, param2, param3, param4)
+                choice_cluster, dict_gdf[pathway], param1, param2, param4)
             dict_gdf_clustered[pathway] = gdf_clustered
 
     with col2:
@@ -326,7 +326,7 @@ def map_per_pathway():
 
         if map_choice == "cluster centroid":
             df_selected_site = None
-            gdf_clustered_centroid = _summarise_clusters_by_centroid(
+            gdf_clustered_centroid = summarise_clusters_by_centroid(
                 dict_gdf_clustered[pathway])
             st.markdown(
                 """*Click on a cluster centroid to see details **below the map***""")
@@ -376,7 +376,7 @@ def map_per_pathway():
             # CO2
             if isinstance(df_selected, pd.DataFrame) and not df_selected.empty:
                 emission = df_selected["Direct CO2 emissions (t)"].iloc[0]
-                emission, unit = _energy_convert(emission, "t", elec=False)
+                emission, unit = energy_convert(emission, "t", elec=False)
                 st.write(
                     f"Direct CO2 emissions per annum : {emission:.2f} {unit}")
 
@@ -524,42 +524,6 @@ def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
         return None
 
 
-def _energy_convert(value, unit, elec=False):
-    """
-    Converts energy values from GJ to higher units (TJ, PJ) or to MWh/TWh if elec=True.
-
-    Parameters:
-        value (float): Energy value
-        unit (str): Initial unit, expected to be 'GJ'
-        elec (bool): If True, converts to MWh or TWh
-
-    Returns:
-        (rounded_value, new_unit)
-    """
-    if unit == "t":
-        if value >= 1_000_000:
-            return round(value / 1_000_000, 2), "Mt"
-        elif value >= 1_000:
-            return round(value / 1_000, 2), "kt"
-        else:
-            return round(value, 2), "t"
-
-    if elec:
-        # 1 GJ = 0.277778 MWh
-        value_mwh = value * 0.277778
-        if value_mwh >= 1_000_000:
-            return round(value_mwh / 1_000_000), "TWh"
-        else:
-            return round(value_mwh), "MWh"
-    else:
-        if value >= 1_000_000:
-            return round(value / 1e6), "PJ"
-        elif value >= 1_000:
-            return round(value / 1e3), "TJ"
-        else:
-            return round(value), "GJ"
-
-
 def _tree_map(df):
     if df is not None and not df.empty:
         # Select relevant columns
@@ -589,7 +553,7 @@ def _tree_map(df):
         # Total energy calculation and conversion
         total_energy = df_long["value"].sum()
         unit = df_long["unit"].iloc[0]
-        total_energy, unit_real = _energy_convert(total_energy, unit, elec)
+        total_energy, unit_real = energy_convert(total_energy, unit, elec)
         # Create treemap
         fig = px.treemap(
             df_long,
@@ -662,7 +626,7 @@ def _sankey(df, unit):
             )
         )])
         total_energy = df["total_energy"].sum()
-        total_energy, unit_real = _energy_convert(total_energy, unit)
+        total_energy, unit_real = energy_convert(total_energy, unit)
 
         fig.update_layout(
             hovermode='x',
@@ -908,7 +872,7 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
 
     # Converts total energy into formatted string with unit for tooltip display.
     def build_total_html(row):
-        total_formatted, unit_formatted = _energy_convert(
+        total_formatted, unit_formatted = energy_convert(
             row['total_energy_rounded'], row['unit'], False)
         return f"{total_formatted} {unit_formatted}"
 
@@ -1265,307 +1229,81 @@ def _edit_clustering(choice):
             "Minimum number of sites", 1, 10, step=1, value=5)
         radius = st.slider("Distance between sites (km)",
                            1, 100, step=1, value=10)
-        return min_samples, radius, None, None
+        return choice, min_samples, radius, None
 
-    if choice == "KMEANS":
+    elif choice == "KMEANS":
         st.markdown(
             """<small><i>KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location only.</i></small>""",
             unsafe_allow_html=True
         )
         n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
-        return n_cluster, None, None, None
-
-    if choice == "KMEANS (weighted)":
-        st.markdown(
-            """<small><i>Weighted KMeans clustering requires the number of clusters to be defined. It clusters the sites based on their location, weighted by their total energy demand.</i></small>""",
-            unsafe_allow_html=True
+        kmeans_option = st.segmented_control(
+            "Clustering option", options=["Weighted", "Threshold"]
         )
-        n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
-        return n_cluster, None, None, None
-    if choice == "KMEANS threshold":
 
-        n_cluster = st.slider("Number of clusters", 1, 200, step=1, value=100)
-        value_threshold = st.radio('Select threshold type',
-                                   ('Energy', 'Emissions'),
-                                   horizontal=True)
-
-        if value_threshold == "Energy":
+        if kmeans_option == "Weighted":
             st.markdown(
-                """<small><i>KMeans threshold clustering groups sites based on location. 
-                Only clusters with total energy consumption above the defined threshold are kept. 
-                Optionally, smaller clusters can be reassigned to the closest valid one.</i></small>""",
+                """<small><i>Weighted KMeans clustering clusters the sites based on their location, weighted by their total energy demand or direct CO2 emission.</i></small>""",
                 unsafe_allow_html=True
             )
-            limit = st.slider("Energy threshold (PJ)", 5,
-                              1000, step=1, value=1000)
-            limit = limit * 1e6  # Convert PJ to GJ for consistency
+            value_type = st.radio(
+                'Select threshold type', ('Energy', 'Emissions'), horizontal=True)
+            return "KMEANS_WEIGHTED", n_cluster, value_type, None
+
+        elif kmeans_option == "Threshold":
+
+            value_type = st.radio(
+                'Select threshold type', ('Energy', 'Emissions'), horizontal=True)
+            if value_type == "Energy":
+                st.markdown(
+                    """<small><i>Only clusters with total energy consumption above the defined threshold are kept. Optionally, smaller clusters can be reassigned to the closest valid one.</i></small>""",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    """<small><i>Only clusters with total CO₂ emissions above the defined threshold are kept. Optionally, smaller clusters can be reassigned to the closest valid one.</i></small>""",
+                    unsafe_allow_html=True
+                )
+
+            redistribute = st.radio("Redistribute undersized clusters?", [
+                                    "No", "Yes"], index=0)
+            return "KMEANS_THRESHOLD", n_cluster, value_type, redistribute
         else:
-            st.markdown(
-                """<small><i>KMeans threshold clustering groups sites based on location. 
-                Only clusters with total CO₂ emissions above the defined threshold are kept. 
-                Optionally, smaller clusters can be reassigned to the closest valid one.</i></small>""",
-                unsafe_allow_html=True
-            )
-
-            limit = st.slider("Emissions threshold (KtCO₂)",
-                              100, 15000, step=10, value=1000)
-            limit = limit * 1e3  # Convert ktCO₂ to tCO₂ for consistency
-        redistribute = st.radio(
-            "Redistribute undersized clusters?", ["No", "Yes"], index=0)
-
-        return n_cluster, value_threshold, limit, redistribute
+            return "KMEANS", n_cluster, None, None
 
 
-def _run_clustering(choice, gdf, param1, param2, param3, param4):
-
+def _run_clustering(choice, gdf, param1, param2, param4):
     if choice == "DBSCAN":
         min_samples, radius = param1, param2
         gdf = gdf.copy()
-
-        # Deduplicate based on site ID
         gdf_filtered = gdf.drop_duplicates(subset="aidres_site_id")
-
-        # Apply DBSCAN clustering
-        gdf_clustered_single = _cluster_gdf_dbscan(
+        gdf_clustered_single = cluster_gdf_dbscan(
             gdf_filtered, min_samples, radius)
-
-        # Create a mapping from site ID to cluster
         cluster_map = dict(
             zip(gdf_clustered_single["aidres_site_id"], gdf_clustered_single["cluster"]))
-        # Assign cluster to each row in the original gdf
         gdf["cluster"] = gdf["aidres_site_id"].map(cluster_map)
         gdf_clustered = gdf
-    if choice == "KMEANS":
-        n_cluster = param1
-        gdf_clustered = _cluster_gdf_kmeans(gdf, n_cluster)
 
-    if choice == "KMEANS (weighted)":
+    elif choice == "KMEANS":
         n_cluster = param1
-        gdf_clustered = _cluster_gdf_kmeans_weight(gdf, n_cluster)
+        gdf_clustered = cluster_gdf_kmeans(gdf, n_cluster)
 
-    if choice == "KMEANS threshold":
-        n_cluster, value_threshold, limit, redistribute = param1, param2, param3, param4
-        # Perform threshold-based clustering
-        gdf_clustered = _kmeans_threshold(
-            gdf, n_cluster, value_threshold, limit, redistribute
-        )
+    elif choice == "KMEANS_WEIGHTED":
+        n_cluster, value_type = param1, param2
+        gdf_clustered = cluster_gdf_kmeans_weight(gdf, value_type, n_cluster)
+
+    elif choice == "KMEANS_THRESHOLD":
+        n_cluster, value_type, redistribute = param1, param2, param4
+        gdf_clustered = kmeans_threshold(
+            gdf, n_cluster, value_type, redistribute)
+
+    else:
+        return gdf  # fallback
 
     if (gdf_clustered["cluster"] != -1).any():
         return gdf_clustered
     else:
         return gdf
-
-
-def _kmeans_threshold(gdf, n_clusters, value_type, threshold, redistribute) -> gpd.GeoDataFrame:
-    """
-    Perform KMeans clustering on a GeoDataFrame using lat/lon coordinates,
-    then only retain clusters whose total value (energy or emissions) exceeds the threshold.
-    Optionally redistributes points from undersized clusters to closest valid cluster.
-
-    Parameters:
-    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries.
-    value_type (str): "Energy" or "Emissions".
-    threshold (float): Minimum total value per cluster (in GJ or ktCO₂).
-
-    Returns:
-    GeoDataFrame: GeoDataFrame with a new 'cluster' column.
-    """
-
-    value_col_map = {
-        "Energy": "total_energy",
-        "Emissions": "Direct CO2 emissions (t)"
-    }
-    print(gdf)
-    if value_type not in value_col_map:
-        raise ValueError("value_type must be either 'Energy' or 'Emissions'")
-
-    value_col = value_col_map[value_type]
-    if value_col not in gdf.columns:
-        raise KeyError(f"Column '{value_col}' not found in GeoDataFrame")
-
-    # Coordinates extraction
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
-
-    coords = gdf[['lat', 'lon']].to_numpy()
-    coords_scaled = StandardScaler().fit_transform(coords)
-
-    # KMeans clustering
-    kmeans = KMeans(n_clusters, random_state=0, n_init="auto")
-    gdf['kmeans_label'] = kmeans.fit_predict(coords_scaled)
-
-    # Cluster value totals
-    cluster_totals = gdf.groupby("kmeans_label")[value_col].sum()
-    valid_clusters = cluster_totals[cluster_totals >=
-                                    threshold].index.to_numpy()
-
-    # Assign clusters (invalid clusters get -1)
-    gdf['cluster'] = -1
-    gdf.loc[gdf['kmeans_label'].isin(
-        valid_clusters), 'cluster'] = gdf['kmeans_label']
-
-    # Optionally reassign small-cluster points
-    if redistribute == "Yes" and len(valid_clusters) > 0:
-        valid_centroids = (
-            gdf[gdf['cluster'] != -1]
-            .groupby("cluster")[["lat", "lon"]]
-            .mean()
-            .to_numpy()
-        )
-
-        mask_unassigned = gdf['cluster'] == -1
-        unassigned_coords = gdf.loc[mask_unassigned, ["lat", "lon"]].to_numpy()
-
-        dist_matrix = np.linalg.norm(
-            unassigned_coords[:, None, :] - valid_centroids[None, :, :],
-            axis=2
-        )
-
-        nearest = dist_matrix.argmin(axis=1)
-        gdf.loc[mask_unassigned, 'cluster'] = valid_clusters[nearest]
-
-    return gdf.drop(columns=["kmeans_label"])
-
-
-def _cluster_gdf_dbscan(gdf, min_samples, radius):
-    """
-    Perform DBSCAN clustering on a GeoDataFrame using lat/lon.
-
-    Parameters:
-    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries.
-    min_samples (int): Minimum number of points to form a cluster.
-    eps (float): Maximum distance between points in the same cluster (in degrees).
-
-    Returns:
-    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
-    """
-    # Ensure geometry is in lat/lon
-    gdf.loc[:, "lat"] = gdf.geometry.y
-    gdf.loc[:, "long"] = gdf.geometry.x
-    coords_rad = np.radians(gdf[["lat", "long"]])
-
-    db = DBSCAN(
-        eps=radius / 6371.0,  # Convert radius from km to radians
-        min_samples=min_samples,
-        metric="haversine",
-        algorithm="ball_tree",
-    ).fit(coords_rad)
-    gdf['cluster'] = db.labels_
-
-    return gdf
-
-
-# Summarise clusters values and aggreagatge in centroid cluster (exculde -1)
-def _summarise_clusters_by_centroid(gdf_clustered):
-    """
-    Summarise clustered GeoDataFrame by computing the centroid of each cluster
-    and summing all type_ener_feed columns cluster.
-
-    Parameters:
-    gdf_clustered (GeoDataFrame): Clustered GeoDataFrame with 'cluster' column.
-
-    Returns:
-    GeoDataFrame: GeoDataFrame with one row cluster, centroid location, and
-                  sum of all type_ener_feed columns.
-    """
-    if 'cluster' not in gdf_clustered.columns:
-        raise ValueError("GeoDataFrame must contain a 'cluster' column.")
-    columns = [col for col in gdf_clustered.columns if any(
-        col.startswith(f"{feed} ") for feed in type_ener_feed) or col == "total_energy" or col == "Direct CO2 emissions (t)"]
-
-    def _cluster_centroid(cluster_df):
-        """Compute centroid of a cluster."""
-        if cluster_df.empty:
-            return None
-        points = MultiPoint(cluster_df.geometry.tolist())
-        return [points.centroid.y, points.centroid.x]
-
-    if (gdf_clustered["cluster"] != -1).any():
-        cluster_centers = (
-            gdf_clustered[gdf_clustered["cluster"] != -
-                          1].groupby("cluster").apply(_cluster_centroid)
-        )
-    else:
-        return gdf_clustered
-    centroids_df = pd.DataFrame(
-        cluster_centers.tolist(),
-        columns=["Latitude", "Longitude"],
-        index=cluster_centers.index,
-    )
-
-    gdf_clustered_center = gpd.GeoDataFrame(
-        centroids_df,
-        geometry=gpd.points_from_xy(
-            centroids_df.Longitude, centroids_df.Latitude),
-        crs="EPSG:4326",
-    )
-
-    # Group by cluster and sum energy columns
-    summary = gdf_clustered.groupby(
-        "cluster")[columns].sum().reset_index()
-
-    # Compute geometry as centroid of cluster
-    gdf_summary = summary.merge(gdf_clustered_center, on="cluster")
-
-    gdf_summary = gpd.GeoDataFrame(
-        gdf_summary, geometry='geometry', crs="EPSG:4326")
-
-    return gdf_summary
-
-
-# KMeans clustering for GeoDataFrame
-def _cluster_gdf_kmeans(gdf, n_clusters=5):
-    """
-    Perform KMeans clustering on a GeoDataFrame using lat/lon.
-
-    Parameters:
-    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries.
-    n_clusters (int): The number of clusters to form.
-
-    Returns:
-    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
-    """
-    # Ensure geometry is in lat/lon
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
-
-    coords = gdf[['lat', 'lon']].to_numpy()
-    scaler = StandardScaler()
-    coords_scaled = scaler.fit_transform(coords)
-
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(coords_scaled)
-    gdf['cluster'] = kmeans.labels_
-
-    return gdf
-
-
-def _cluster_gdf_kmeans_weight(gdf, n_clusters=5):
-    """
-    Perform KMeans clustering on a GeoDataFrame using lat/lon and weighted by total_energy.
-
-    Parameters:
-    gdf (GeoDataFrame): Input GeoDataFrame with Point geometries and 'total_energy' column.
-    n_clusters (int): The number of clusters to form.
-
-    Returns:
-    GeoDataFrame: GeoDataFrame with an added 'cluster' column.
-    """
-    # Ensure geometry is in lat/lon
-    gdf['lon'] = gdf.geometry.x
-    gdf['lat'] = gdf.geometry.y
-
-    coords = gdf[['lat', 'lon']].to_numpy()
-    scaler = StandardScaler()
-    coords_scaled = scaler.fit_transform(coords)
-
-    weights = gdf['total_energy'].to_numpy()
-    weights = gdf['total_energy']
-    weights_normalised = weights / weights.mean()  # or weights / weights.max()
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
-    kmeans.fit(coords_scaled, sample_weight=weights_normalised)
-
-    gdf['cluster'] = kmeans.labels_
-    return gdf
 
 
 def _layer_RES_generation():
