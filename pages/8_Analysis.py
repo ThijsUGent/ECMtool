@@ -336,6 +336,19 @@ def plot_cluster_sector_sites_stacked(df, sort_by="total_energy", title=""):
     st.plotly_chart(fig, use_container_width=True)
 
 
+def plot_elec_share(gdf, title):
+    fig = px.scatter(
+        gdf,
+        x="cluster_index",
+        y="electricity_share",
+        labels={
+            "cluster_index": "Cluster Index",
+            "electricity_share": "Electricity Share (%)"
+        },
+        title=f"{title}"
+    )
+    st.plotly_chart(fig)
+
 # # Usage: plot sector stacked charts for both scenarios and both sorting metrics
 # for df, name in zip(list_df, scenario_names):
 #     st.write(f"## Scenario: {name}")
@@ -346,6 +359,7 @@ def plot_cluster_sector_sites_stacked(df, sort_by="total_energy", title=""):
 #         sort_by="total_energy",
 #         title=f"Sites by cluster and sector (total energy) - {name}"
 #     )
+
 
 #     st.write("### Sector plot ordered by electricity")
 #     plot_cluster_sector_sites_stacked(
@@ -448,7 +462,13 @@ for df, name in zip(list_df, scenario_names):
 
     gdf = industrialindex(enspreso_level, grouped, RES_source)
 
+    gdf["electricity_share"] = gdf["electricity"]/gdf["total_energy"]*100
+
     st.write(gdf)
+
+    title_share = f"Share of electrcity for industrial clusters with {name}"
+
+    plot_elec_share(gdf, title_share)
 
     layer = st.radio("Select layer", [
                      'Cluster', 'NUTS2_potential', 'both'], key=f'layer{name}')

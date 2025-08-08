@@ -119,48 +119,27 @@ def kmeans_threshold(gdf, n_clusters, value_type, redistribute) -> gpd.GeoDataFr
     if value_type == "Energy":
         base_unit = "GJ"
     elif value_type == "Emissions":
-        base_unit = "kt"
+        base_unit = "t"
     else:
         st.error(f"Unknown value type: {value_type}")
         st.stop()
 
-    # Step 3: Convert raw values to display units
-    min_val_converted, new_unit = energy_convert(min_val, base_unit)
-    max_val_converted, _ = energy_convert(
-        max_val, base_unit)  # same unit expected
-
     # Ensure integers with proper rounding
-    min_val_converted = math.floor(min_val_converted)
-    max_val_converted = math.ceil(max_val_converted)
+    min_val_rounded = math.floor(min_val)
+    max_val_rounded = math.ceil(max_val)
 
     # Step 4: Use slider directly in converted units
     limit_converted = st.slider(
-        f"{value_type} threshold ({new_unit})",
-        min_value=min_val_converted,
-        max_value=max_val_converted - 1,
-        value=min_val_converted,
+        f"{value_type} threshold ({base_unit})",
+        min_value=min_val_rounded,
+        max_value=max_val_rounded - 1,
+        value=min_val_rounded,
         step=1
     )
 
-    # Step 5: Convert selected value back to base unit
-    if value_type == "Energy":
-        if new_unit == "PJ":
-            limit_base = limit_converted * 1e6
-        elif new_unit == "TJ":
-            limit_base = limit_converted * 1e3
-        else:
-            limit_base = limit_converted  # already in GJ
-    elif value_type == "Emissions":
-        if new_unit == "Mt":
-            limit_base = limit_converted * 1e6
-        elif new_unit == "kt":
-            limit_base = limit_converted * 1e3
-        else:
-            limit_base = limit_converted  # already in t
-
     # Step 6: Filter valid clusters
     valid_clusters = cluster_totals[cluster_totals >=
-                                    limit_base].index.to_numpy()
+                                    limit_converted].index.to_numpy()
 
     # Assign clusters (invalid clusters get -1)
     gdf['cluster'] = -1

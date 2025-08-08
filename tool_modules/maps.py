@@ -241,6 +241,13 @@ def map_per_pathway():
         choice_cluster, param1, param2, param4 = _edit_clustering(
             choice)
         dict_gdf_clustered = {}
+
+        empty_gdf = gpd.GeoDataFrame()  # or pd.DataFrame() if not spatial
+
+        for pathway in pathways_names_filtered:
+            # assign empty GeoDataFrame
+            dict_gdf_clustered[pathway] = empty_gdf
+
         for pathway in pathways_names_filtered:
             dict_gdf[pathway] = dict_gdf[pathway].rename(
                 columns={
@@ -250,9 +257,6 @@ def map_per_pathway():
                 dict_gdf[pathway] = dict_gdf[pathway][
                     dict_gdf[pathway]["nuts3_code"].str[:2].isin(country_codes)
                 ]
-            gdf_clustered = _run_clustering(
-                choice_cluster, dict_gdf[pathway], param1, param2, param4)
-            dict_gdf_clustered[pathway] = gdf_clustered
 
     with col2:
         col_map_param, col_layers = st.columns([2, 1])
@@ -276,6 +280,9 @@ def map_per_pathway():
 
             pathway = st.radio("Select a pathway",
                                pathways_names_filtered, horizontal=True)
+            gdf_clustered = _run_clustering(
+                choice_cluster, dict_gdf[pathway], param1, param2, param4)
+            dict_gdf_clustered[pathway] = gdf_clustered
 
             sectors_included = dict_gdf_clustered[pathway]["aidres_sector_name"].unique(
             ).tolist()
