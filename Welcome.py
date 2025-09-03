@@ -21,7 +21,7 @@ st.logo(logo_side, size="large",
 st.subheader("RES2Go beta")
 st.markdown("""*Future of the renewable energies in industrial processes*""")
 st.markdown("""
-    This tool —UGent ECM RES2Go— starts from the AIDRES project, creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro level, and assess future demand of multiple energy sources.   """)
+    This tool —ECM RES2Go— starts from the AIDRES project, creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro level, and assess future demand of multiple energy sources.   """)
 
 st.markdown("""
     :arrow_down: Start to check tutorial in documentation section and use the tool :arrow_down:

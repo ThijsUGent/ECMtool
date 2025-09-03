@@ -1,0 +1,5 @@
+# Start from the official Python dev container image
+FROM mcr.microsoft.com/devcontainers/python:1-3.11-bullseye
+
+# Install Git LFS
+RUN apt-get update && apt-get install -y git-lfs && git lfs install

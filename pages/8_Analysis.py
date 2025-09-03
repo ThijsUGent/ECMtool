@@ -368,6 +368,7 @@ def plot_elec_share(gdf, title):
 #         title=f"Sites by cluster and sector (electricity) - {name}"
 #     )
 for df, name in zip(list_df, scenario_names):
+    st.write(df)
     df["geometry"] = df["geometry"].apply(wkt.loads)
     gdf = gpd.GeoDataFrame(df, geometry="geometry")
     # Total number of sites (all rows)
