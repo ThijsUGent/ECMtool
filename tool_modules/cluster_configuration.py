@@ -3,36 +3,38 @@ import pandas as pd
 import numpy as np
 
 
+# Existing dictionary
 dict_product_by_sector = {
-    "Cement": ["cement"],
-    "Chemical": [
-        "chemical-PE",
-        "chemical-PEA",
-        "chemical-olefins"
-    ],
-    "Fertilisers": [
-        "fertiliser-ammonia",
-        "fertiliser-nitric-acid",
-        "fertiliser-urea"
-    ],
-    "Glass": [
-        "glass-container",
-        "glass-fibre",
-        "glass-float"
-    ],
-    "Refineries": [
-        "refineries-light-liquid-fuel"
-    ],
-    "Steel": [
-        "steel-primary",
-        "steel-secondary"
-    ]
+    "Cement": ["Cement"],
+    "Chemical": ["Polyethylene", "Polyethylene acetate", "Olefins"],
+    "Fertilisers": ["Ammonia", "Nitric acid", "Urea"],
+    "Glass": ["Container glass", "Glass fibre", "Float glass"],
+    "Refineries": ["Light liquid fuel"],
+    "Steel": ["Primary steel", "Secondary steel"],
 }
 
-sectors_list = [
-    "Cement", "Chemical", "Fertilisers", "Glass", "Refineries", "Steel"
-]
+sectors_list = list(dict_product_by_sector.keys())
+new_sectors_list = []
+new_product_list = []
 
+for key in st.session_state.keys():
+    if key.startswith("new_product_") and key.endswith("_list"):
+        # Extract the sector name between "new_product_" and "_list"
+        sector_name = key[len("new_product_"):-len("_list")]
+
+        if isinstance(st.session_state[key], list):
+            new_products = [f"{item}" for item in st.session_state[key]]
+            new_product_list.extend(new_products)
+
+            # Update dictionary: append if sector exists, create if not
+            if sector_name in dict_product_by_sector:
+                # extend but avoid duplicates
+                dict_product_by_sector[sector_name].extend(
+                    p for p in new_products if p not in dict_product_by_sector[sector_name]
+                )
+            else:
+                dict_product_by_sector[sector_name] = new_products
+                new_sectors_list.append(sector_name)
 
 def cluster_configuration():
     st.subheader("Cluster configuration")
@@ -101,7 +103,7 @@ def _cluster_product_selection():
 
     sectors_list_all = ["Cement", "Chemical",
                         "Fertilisers", "Glass", "Refineries", "Steel"]
-    sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
+    sectors_list_plus_other = sectors_list_all + new_sectors_list 
 
     selected_sectors = st.pills(
         "Sector(s)", sectors_list_plus_other, selection_mode="multi"
@@ -115,21 +117,9 @@ def _cluster_product_selection():
 
     for i, sector in enumerate(selected_sectors):
         with tabs[i]:
-            if sector == "No-AIDRES products":
-                other_products = []
-                if st.session_state.get("Pathway name"):
-                    for name, pathway in st.session_state["Pathway name"].items():
-                        for sector_product in pathway.keys():
-                            split_parts = sector_product.split("_")
-                            if split_parts[0] == "No-AIDRES products":
-                                other_products.append(split_parts[-1])
-                    all_products = other_products
-                else:
-                    all_products = []
-            else:
-                all_products = dict_product_by_sector[sector]
-
+            all_products = dict_product_by_sector[sector]
             for product in all_products:
+
                 with st.expander(f"{product}", expanded=False):
                     df = _get_df_site_parameters(product)
                     df["product"] = product

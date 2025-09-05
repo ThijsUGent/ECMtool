@@ -74,8 +74,6 @@ color_map.update({
 })
 
 # Radius scale
-
-
 def _get_radius(df):
     top_1_val = df["total_energy"].quantile(0.99)
     top_10_val = df["total_energy"].quantile(0.90)
@@ -105,18 +103,78 @@ def _get_radius(df):
 
 def map_per_utlisation_rate():
     st.write("In progress")
+product_updates = {
+    "cement": "Cement",
+    "chemical-PE": "Polyethylene",
+    "chemical-PEA": "Polyethylene acetate",
+    "chemical-olefins": "Olefins",
+    "fertiliser-ammonia": "Ammonia",
+    "fertiliser-nitric-acid": "Nitric acid",
+    "fertiliser-urea": "Urea",
+    "glass-container": "Container glass",
+    "glass-fibre": "Glass fibre",
+    "glass-float": "Float glass",
+    "refineries-light-liquid-fuel": "Light liquid fuel",
+    "steel-secondary" : "Secondary steel", 
+    "steel-primary" : "Primary steel"
+}
 
+# Existing dictionary
+dict_product_by_sector_AIDRES = {
+    "Cement": ["Cement"],
+    "Chemical": ["Polyethylene", "Polyethylene acetate", "Olefins"],
+    "Fertilisers": ["Ammonia", "Nitric acid", "Urea"],
+    "Glass": ["Container glass", "Glass fibre", "Float glass"],
+    "Refineries": ["Light liquid fuel"],
+    "Steel": ["Primary steel", "Secondary steel"],
+}
 
 def map_per_pathway():
     st.subheader("Maps - European scale")
+
+    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
+        st.info("No selections stored yet.")
+        return
+    AIDRES_Data_check = False
+    # Loop over ALL pathways
+    for pathway, pathway_dict in st.session_state["Pathway name"].items():
+
+        # Loop over ALL AIDRES sectors
+        for sector, products in dict_product_by_sector_AIDRES.items():
+            sector_dfs = []
+
+            # Collect DataFrames for each product of this sector
+            for product in products:
+                key = f"{sector}_{product}"
+                if key in pathway_dict:
+                    sector_dfs.append(pathway_dict[key])
+
+            # If no matching product keys found, skip sector
+            if not sector_dfs:
+                continue
+
+            # Check if ALL product dfs in this sector are empty
+            if all(df.empty for df in sector_dfs):
+                continue
+            else : 
+                AIDRES_Data_check = True
+    if not AIDRES_Data_check:
+        pathways = list(st.session_state["Pathway name"].keys())
+        pathways_str = " / ".join(pathways)
+
+        st.warning(
+            f"⚠️ {pathways_str} do not contain AIDRES data. "
+            "Please include AIDRES production routes to use map features."
+        )
+        return
     path = "data/production_site.csv"
     df = pd.read_csv(path)
 
     df = df[df["wp1_model_product_name"] != "not included in blue-print model"]
 
-    if "Pathway name" not in st.session_state or not st.session_state["Pathway name"]:
-        st.info("No selections stored yet.")
-        return
+    df["wp1_model_product_name"] = df["wp1_model_product_name"].replace(product_updates)
+
+
 
     pathways_names = list(
         st.session_state["Pathway name"].keys())
@@ -715,6 +773,8 @@ def _get_utilization_rates(sectors):
 
 def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     perton = st.session_state["Pathway name"][pathway]
+
+
     list_keys = list(perton.keys())
     sectors_list = []
     for key in list_keys:
@@ -802,7 +862,6 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
             # Correct way to append data to the final DataFrame
             df_pathway_weighted = pd.concat(
                 [df_pathway_weighted, df_filtered_weight], ignore_index=True)
-
     # Optional: only display once, outside the loop
     gdf_prod_x_perton = gdf_production_site.merge(
         df_pathway_weighted,

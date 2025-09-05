@@ -10,8 +10,91 @@ from tool_modules.eu_mix_preconfiguration import *
 from tool_modules.categorisation import *
 from tool_modules.builder_functions import *
 
+# Mapping short codes to readable product names
+product_updates = {
+    "cement": "Cement",
+    "chemical-PE": "Polyethylene",
+    "chemical-PEA": "Polyethylene acetate",
+    "chemical-olefins": "Olefins",
+    "fertiliser-ammonia": "Ammonia",
+    "fertiliser-nitric-acid": "Nitric acid",
+    "fertiliser-urea": "Urea",
+    "glass-container": "Container glass",
+    "glass-fibre": "Glass fibre",
+    "glass-float": "Float glass",
+    "refineries-light-liquid-fuel": "Light liquid fuel",
+    "steel-secondary" : "Secondary steel", 
+    "steel-primary" : "Primary steel"
+}
+
+# Mapping products to detailed descriptions
+def_product = {
+    "cement": (
+        "Cement products include Portland Cement II (BV325R) and "
+        "Limestone Calcined Clay Cement (LC3), based on the AIDRES report: "
+        "https://op.europa.eu/en/publication-detail/-/publication/577d820d-5115-11ee-9220-01aa75ed71a1"
+    ),
+    "chemical-PE": (
+        "Polyethylene (PE) products, derived from ethylene, "
+        "commonly used in packaging, films, and molded items. "
+        "Details based on the AIDRES report."
+    ),
+    "chemical-PEA": (
+        "Polyethylene acetate (PEA) products, derived from polyethylene "
+        "with acetate modifications, used in coatings, adhesives, "
+        "and specialty plastics. Based on the AIDRES report."
+    ),
+    "chemical-olefins": (
+        "Olefins (ethylene, propylene, and related derivatives), "
+        "used as building blocks for plastics, chemicals, and fuels. "
+        "Details from the AIDRES report."
+    ),
+    "fertiliser-ammonia": (
+        "Ammonia-based fertiliser products, produced from nitrogen "
+        "and hydrogen, widely used as feedstock for other fertilisers. "
+        "Based on the AIDRES report."
+    ),
+    "fertiliser-nitric-acid": (
+        "Nitric acid-based fertiliser products, typically used in the "
+        "production of ammonium nitrate and related compounds. "
+        "Details from the AIDRES report."
+    ),
+    "fertiliser-urea": (
+        "Urea-based fertiliser products, the most widely used nitrogen fertiliser, "
+        "produced from ammonia and carbon dioxide. Based on the AIDRES report."
+    ),
+    "glass-container": (
+        "Container glass products, primarily bottles and jars used "
+        "for packaging food, beverages, and other goods. "
+        "Details from the AIDRES report."
+    ),
+    "glass-fibre": (
+        "Glass fibre products, used in insulation, composites, and "
+        "reinforcement materials. Based on the AIDRES report."
+    ),
+    "glass-float": (
+        "Float glass products, manufactured by floating molten glass on a "
+        "bed of molten metal, used in windows, facades, and mirrors. "
+        "Details from the AIDRES report."
+    ),
+    "refineries-light-liquid-fuel": (
+        "Light liquid fuel products, including gasoline and other "
+        "refined fractions derived from crude oil. "
+        "Based on the AIDRES report."
+    ),
+}
 
 def select_page():
+
+    # --- init session_state ---
+    if "adding_sector" not in st.session_state:
+        st.session_state.adding_sector = False
+    if "sectors_list_new" not in st.session_state:
+        st.session_state.sectors_list_new = []
+    if "new_sector" not in st.session_state:
+        st.session_state.new_sector = ""
+    
+
     # Prechoice radio doc link
 
     if "pathway_configuration_prechoice" not in st.session_state:
@@ -32,6 +115,7 @@ def select_page():
         perton_path = "data/perton_all.csv"
         perton_ALL = pd.read_csv(perton_path)
 
+
         perton_ALL = perton_ALL.groupby(
             "configuration_id").first().reset_index()
 
@@ -42,6 +126,10 @@ def select_page():
 
         perton_ALL_no_mix["route_name"] = perton_ALL_no_mix["configuration_name"].replace(
             "route_name")
+        
+        # Replace product names using the mapping
+        perton_ALL_no_mix["product_name"] = perton_ALL_no_mix["product_name"].replace(product_updates)
+                
 
         # Columns to be shown in the route selection editor
         columns_to_show_selection = [
@@ -98,6 +186,7 @@ def select_page():
 
                 # Save button
                 if st.button("Save pathway"):
+                    
                     if pathway_name.strip() == "":
                         st.warning("Please enter a name for the pathway.")
                     elif pathway_name in st.session_state["Pathway name"]:
@@ -105,6 +194,8 @@ def select_page():
                             f"A pathway named '{pathway_name}' already exists.")
                     else:
                         st.session_state["Pathway name"][pathway_name] = dict_routes_selected
+                        st.session_state.sectors_list_new = []
+                        st.session_state.new_sector = ""
                         st.success(f"Pathway '{pathway_name}' saved.")
                 # Download button (triggers logic only when clicked)
                 if st.button("Download pathway"):
@@ -124,3 +215,5 @@ def select_page():
 
             else:
                 st.text("Please upload or create a pathway before saving.")
+
+                

@@ -18,7 +18,7 @@ st.logo(logo_side, size="large",
         link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm", icon_image=logo)
 
 
-st.subheader("RES2Go beta")
+st.subheader("RES2Go")
 st.markdown("""*Future of the renewable energies in industrial processes*""")
 st.markdown("""
     This tool —ECM RES2Go— starts from the AIDRES project, creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro level, and assess future demand of multiple energy sources.   """)

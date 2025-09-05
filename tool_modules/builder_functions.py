@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-sectors_list_all = ["Cement", "Chemical",
+sectors_list_AIDRES = ["Cement", "Chemical",
                     "Fertilisers", "Glass", "Refineries", "Steel"]
+
 
 
 def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection, sector, product, mode_key, df_upload=None):
@@ -57,6 +58,7 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
     else:
         df_product["selected"] = False
         df_product["route_weight"] = None
+        df_product["sectro_name"]= sector
 
     # Reorder columns to place 'selected' first
     cols = df_product.columns.tolist()
@@ -66,11 +68,11 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
     # Selection editor
     edited_df = st.data_editor(
         df_product,
-        num_rows="fixed",
+        num_rows="dynamic",
         column_config={
             "selected": st.column_config.CheckboxColumn("selected")},
         column_order=columns_to_show_selection,
-        disabled=df_product.columns.difference(["selected"]).tolist(),
+        disabled=False,
         hide_index=True,
         key=f"editor_{mode_key}_{sector}_{product}",
     )
@@ -143,7 +145,11 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
             found_weight_change = False
 
             for route in edited_selected_df["route_name"].unique():
-                base_route = route.replace(" modified", "")
+                if route is not None :
+                    base_route = route.replace(" modified", "")
+                else :
+                    st.warning("⚠️ Please enter a production route name")
+                    return df_product, False
                 edited_row = edited_selected_df[edited_selected_df["route_name"] == route]
                 original_row = selected_df[selected_df["route_name"]
                                            == base_route]
@@ -195,78 +201,21 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
 
             if not found_param_change:
                 st.write("No parameter changes.")
+    
+    st.write(edited_selected_df)
 
     return edited_selected_df, modified
 # Streamlit interface and data tools
 
-
-def _other_sectors_product(df_template=None):
-    """
-    Display configurations not belonging to the main sectors under 'No-AIDRES products'.
-
-    Returns:
-    - dict: Mapping from sector_product string to edited dataframe.
-    """
-    columns = [
-        "electricity_[gj/t]", "alternative_fuel_mixture_[gj/t]", "biomass_[gj/t]",
-        "biomass_waste_[gj/t]", "coal_[gj/t]", "coke_[gj/t]", "crude_oil_[gj/t]",
-        "hydrogen_[gj/t]", "methanol_[gj/t]", "ammonia_[gj/t]", "naphtha_[gj/t]",
-        "natural_gas_[gj/t]", "plastic_mix_[gj/t]", "alternative_fuel_mixture_[t/t]",
-        "biomass_[t/t]", "biomass_waste_[t/t]", "coal_[t/t]", "coke_[t/t]",
-        "crude_oil_[t/t]", "hydrogen_[t/t]", "methanol_[t/t]", "ammonia_[t/t]",
-        "naphtha_[t/t]", "natural_gas_[t/t]", "plastic_mix_[t/t]",
-        "co2_allowance_[eur/t]", "direct_emission_[tco2/t]", "total_emission_[tco2/t]",
-        "direct_emission_reduction_[%]", "total_emission_reduction_[%]", "captured_co2_[tco2/t]"
-    ]
-    columns_fixed = ["route_name", "product_name"]
-
-    with st.expander("Energy parameters", expanded=False):
-        columns_selected = st.pills(
-            "Select energy parameters to edit",
-            options=columns,
-            default=columns[0],
-            selection_mode="multi",
-            key="other_sectors_product_selection"
-        )
-    column_df = columns_fixed + columns_selected
-    if df_template is None:
-        df_template = pd.DataFrame(
-            columns=column_df,
-        )
-    else:
-        df_template = df_template[df_template["sector_name"]
-                                  == "No-AIDRES products"].copy()
-        for col in column_df:
-            if col not in df_template.columns:
-                df_template[col] = np.nan
-        df_template = df_template[column_df]
-    # Enforce data types
-    for col in columns_fixed:
-        df_template[col] = df_template[col].astype(str)
-    for col in columns_selected:
-        df_template[col] = df_template[col].astype(float)
-
-    df_edit = st.data_editor(
-        df_template,
-        num_rows="dynamic",
-        hide_index=True,
-        column_order=column_df,
-        use_container_width=True,
-        key="other_sectors_product"
-    )
-    df_edit[[col for col in columns if col not in columns_selected]] = 0
-    df_edit["sector_name"] = "No-AIDRES products"
-    df_edit["energy_feedstock"] = " "
-    df_edit["route_weight"] = 100
-
-    result_dict = {}
-    grouped = df_edit.groupby(["sector_name", "product_name"])
-    for (sector, product), group_df in grouped:
-        result_dict[f"{sector}_{product}"] = group_df
-    return result_dict
+def _new_sectors(df_template=None):
+    st.write("Configure your new sector here")
+    
 
 
 def preconfigure_path(df, columns_to_show_selection):
+
+    modified = False
+
     # Dictionary to collect selected routes per sector-product
     dict_routes_selected = {}
     # Preconfigure mix option
@@ -310,8 +259,7 @@ def preconfigure_path(df, columns_to_show_selection):
             file_premade = pd.read_csv(
                 "data/premade_pathway/ECM_Tool_EU-MIX-2050-ELECTRIFICATION.txt")
         df_upload = file_premade
-    # modified verification intialisation
-    modified = False
+    
     # List creation to displai tabs and configuration visualisation/modification
     sectors_list = []
 
@@ -320,29 +268,68 @@ def preconfigure_path(df, columns_to_show_selection):
         df_upload["route_name"])]
     unique_sectors = sorted(filtered_df["sector_name"].unique())
     if st.checkbox("Edit pathway"):
-        sectors_list = unique_sectors.copy()
-        sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
-        selected_sectors = st.pills(
-            "Select sector(s) to configure",
-            sectors_list_plus_other,
-            selection_mode="multi",
-            default=sectors_list
+
+        # --New sector option --
+
+        col1, col2 = st.columns([5, 1])  # 5:1 ratio for layout
+        # Inject CSS to shrink the popover button
+        st.markdown("""
+        <style>
+        div[data-testid="stPopover"] button {
+            font-size: 2px !important;   /* smaller font */
+            padding: 0px 6px !important;  /* tighter button */
+            line-height: 1 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        with col2:
+            # Popover with text input
+            with st.popover("➕"):
+                new_sector = st.text_input("New sector name", key="new_sector_input")
+                if st.button("✅ Save", key="save_sector"):
+                    if new_sector.strip() and new_sector not in sectors_list_AIDRES:
+                        st.session_state.new_sector = new_sector
+                        st.session_state.sectors_list_new.append(st.session_state.new_sector)
+                        st.rerun()
+
+        with col1:
+            sector_list =sectors_list_AIDRES + st.session_state.sectors_list_new
+            # --- pills AIDRES sectors---
+            selected_sectors = st.pills(
+            "Sector(s)", sector_list, selection_mode="multi"
         )
         if len(selected_sectors) < 1:
             st.warning("Please select at least one sector")
         else:
             tabs = st.tabs(selected_sectors)
             for i, sector in enumerate(selected_sectors):
+                if f"new_product_{sector}_list" not in st.session_state:
+                    st.session_state[f"new_product_{sector}_list"] = []
                 with tabs[i]:
-                    if sector == "No-AIDRES products":
-                        dict_other = _other_sectors_product(
 
-                        )
-                        dict_routes_selected.update(dict_other)
-                        continue
                     all_products = sorted(
                         df[df["sector_name"] == sector]["product_name"].unique()
-                    )
+                )
+                    # -- add new product --
+                    new_product_list=[]
+
+                    with st.popover("➕"):
+                        product_key = f"new_product_input_{sector}"
+                        save_key = f"save_product_{sector}"
+
+                        new_product = st.text_input("New product name", key=product_key)
+
+                        if st.button("✅ Save", key=save_key):
+                            if new_product.strip() and new_product not in all_products:
+                                st.session_state[f"new_product_{sector}"] = new_product
+                                st.session_state[f"new_product_{sector}_list"].append(st.session_state[f"new_product_{sector}"])
+                                st.rerun()
+
+                    all_products.extend(st.session_state[f"new_product_{sector}_list"])
+                    
+                    # -- End new product and sector adding --
+
+
                     for product in all_products:
                         with st.expander(f"{product}", expanded=False):
                             df_product = df[
@@ -352,6 +339,7 @@ def preconfigure_path(df, columns_to_show_selection):
                             edited_selected_df_product, was_modified = edit_dataframe_selection_and_weighting(
                                 df_product, columns_to_show_selection, sector, product, "eumix", df_upload
                             )
+                            
                             total_weight = edited_selected_df_product["route_weight"].sum(
                             )
                             if 99.95 <= total_weight <= 100.05 or total_weight == 0:
@@ -361,6 +349,7 @@ def preconfigure_path(df, columns_to_show_selection):
                                     f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
                             if was_modified:
                                 modified = True
+    
     else:
         for sector in unique_sectors:
             all_products = sorted(
@@ -388,8 +377,6 @@ def preconfigure_path(df, columns_to_show_selection):
                 else:
                     st.warning(
                         f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
-    if any("No-AIDRES products" in key.split("_")[0] for key in dict_routes_selected.keys()):
-        modified = True
     # Check if modified or not
     if modified:
         pathway_name += " modified"
@@ -397,67 +384,107 @@ def preconfigure_path(df, columns_to_show_selection):
 
 
 def create_path(df, columns_to_show_selection):
-    # Dictionary to collect selected routes per sector-product
     dict_routes_selected = {}
-    # pathway name initial
     pathway_name = "Pathway 1"
-    sectors_list = []
-    for sector in sorted(df["sector_name"].unique()):
-        sectors_list.append(sector)
-    sectors_list_plus_other = sectors_list.copy()
-    # Add "No-AIDRES products" option
-    sectors_list_plus_other.append("No-AIDRES products")
-    selected_sectors = st.pills(
-        "Sector(s)", sectors_list_plus_other, selection_mode="multi")
+
+    
+    col1, col2 = st.columns([5, 1])  # 5:1 ratio for layout
+    st.markdown(
+    """
+    <style>
+    div[data-testid="stPopover"] {
+        margin-top: 20px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+        # Inject CSS to shrink the popover button
+    st.markdown("""
+    <style>
+    div[data-testid="stPopover"] button {
+        font-size: 2px !important;   /* smaller font */
+        padding: 0px 6px !important;  /* tighter button */
+        line-height: 1 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    with col2:
+        # Popover with text input
+        with st.popover("➕"):
+            new_sector = st.text_input("New sector name", key="new_sector_input")
+            if st.button("✅ Save", key="save_sector"):
+                if new_sector.strip() and new_sector not in sectors_list_AIDRES:
+                    st.session_state.new_sector = new_sector
+                    st.session_state.sectors_list_new.append(st.session_state.new_sector)
+                    st.rerun()
+
+    with col1:
+        sector_list =sectors_list_AIDRES + st.session_state.sectors_list_new
+        # --- pills AIDRES sectors---
+        selected_sectors = st.pills(
+        "Sector(s)", sector_list, selection_mode="multi"
+    )
+    
+    # --- Tabs---
     if len(selected_sectors) < 1:
         st.text("Please select at least 1 sector")
     else:
         tabs = st.tabs(selected_sectors)
         for i, sector in enumerate(selected_sectors):
+            if f"new_product_{sector}_list" not in st.session_state:
+                st.session_state[f"new_product_{sector}_list"] = []
             with tabs[i]:
-                if sector == "No-AIDRES products":
-                    dict_other = _other_sectors_product(
-                    )
-                    dict_routes_selected.update(dict_other)
-                    continue
+
                 all_products = sorted(
                     df[df["sector_name"] == sector]["product_name"].unique()
                 )
+                # -- add new product --
+                new_product_list=[]
+
+                with st.popover("➕"):
+                    product_key = f"new_product_input_{sector}"
+                    save_key = f"save_product_{sector}"
+
+                    new_product = st.text_input("New product name", key=product_key)
+
+                    if st.button("✅ Save", key=save_key):
+                        if new_product.strip() and new_product not in all_products:
+                            st.session_state[f"new_product_{sector}"] = new_product
+                            st.session_state[f"new_product_{sector}_list"].append(st.session_state[f"new_product_{sector}"])
+                            st.rerun()
+
+                all_products.extend(st.session_state[f"new_product_{sector}_list"])
+
                 for product in all_products:
-                    with st.expander(f"{sector} - {product}", expanded=False):
+                    with st.expander(f"{product}", expanded=False):
+                        
                         df_product = df[df["product_name"] == product].copy()
-                        # Default: unselected
                         df_product["selected"] = False
                         cols = df_product.columns.tolist()
                         cols.remove("selected")
-                        df_product = df_product[[
-                            "selected"] + cols].reset_index(drop=True)
-                        # Use helper for editing selection and weighting
+                        df_product = df_product[["selected"] + cols].reset_index(drop=True)
+
                         edited_selected_df_product, _ = edit_dataframe_selection_and_weighting(
                             df_product, columns_to_show_selection, sector, product, "custom"
                         )
-                        total_weight = edited_selected_df_product["route_weight"].sum(
-                        )
+                        total_weight = edited_selected_df_product["route_weight"].sum()
                         if 99.95 <= total_weight <= 100.05 or total_weight == 0:
                             dict_routes_selected[f"{sector}_{product}"] = edited_selected_df_product
                         else:
                             st.warning(
-                                f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
+                                f"Sum of weights should be approximately 100%, not {total_weight:.2f}"
+                            )
 
     all_empty = all(df.empty for df in dict_routes_selected.values())
-
     if all_empty:
         st.warning("Select at least one production route")
         return {}, pathway_name
+
+
     return dict_routes_selected, pathway_name
 
-
 def upload_path(df, columns_to_show_selection):
-    # Initialisiation list of sectors
-
-    sectors_list_plus_other = sectors_list_all.copy()
-    # Add "No-AIDRES products" option
-    sectors_list_plus_other.append("No-AIDRES products")
     # Initalisation of modifed
     modified = False
     # Dictionary to collect selected routes per sector-product
@@ -476,30 +503,67 @@ def upload_path(df, columns_to_show_selection):
             sectors_list = []
             unique_sectors = sorted(df_upload["sector_name"].unique())
             if st.checkbox("Edit pathway:"):
-                for sector in unique_sectors:
-                    sectors_list.append(sector)
-                selected_sectors = st.pills(
-                    "Sector(s)", sectors_list_plus_other, selection_mode="multi", default=sectors_list)
+                
+                # --New sector option --
+
+                col1, col2 = st.columns([5, 1])  # 5:1 ratio for layout
+                # Inject CSS to shrink the popover button
+                st.markdown("""
+                <style>
+                div[data-testid="stPopover"] button {
+                    font-size: 2px !important;   /* smaller font */
+                    padding: 0px 6px !important;  /* tighter button */
+                    line-height: 1 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                with col2:
+                    # Popover with text input
+                    with st.popover("➕"):
+                        new_sector = st.text_input("New sector name", key="new_sector_input")
+                        if st.button("✅ Save", key="save_sector"):
+                            if new_sector.strip() and new_sector not in sectors_list_AIDRES:
+                                st.session_state.new_sector = new_sector
+                                st.session_state.sectors_list_new.append(st.session_state.new_sector)
+                                st.rerun()
+
+                with col1:
+                    sector_list =sectors_list_AIDRES + st.session_state.sectors_list_new
+                    # --- pills AIDRES sectors---
+                    selected_sectors = st.pills(
+                    "Sector(s)", sector_list, selection_mode="multi"
+                )
                 if len(selected_sectors) < 1:
-                    st.warning("Please select at least 1 sector")
+                    st.warning("Please select at least one sector")
                 else:
                     tabs = st.tabs(selected_sectors)
                     for i, sector in enumerate(selected_sectors):
+                        if f"new_product_{sector}_list" not in st.session_state:
+                            st.session_state[f"new_product_{sector}_list"] = []
                         with tabs[i]:
-                            if sector == "No-AIDRES products":
-                                if "No-AIDRES products" not in df_upload["sector_name"].values:
-                                    dict_other = _other_sectors_product(
-                                    )
-                                else:
-                                    dict_other = _other_sectors_product(
-                                        df_template=df_upload
-                                    )
-                                dict_routes_selected.update(dict_other)
-                                continue
+
                             all_products = sorted(
-                                df[df["sector_name"] ==
-                                    sector]["product_name"].unique()
-                            )
+                                df[df["sector_name"] == sector]["product_name"].unique()
+                        )
+                            # -- add new product --
+                            new_product_list=[]
+
+                            with st.popover("➕"):
+                                product_key = f"new_product_input_{sector}"
+                                save_key = f"save_product_{sector}"
+
+                                new_product = st.text_input("New product name", key=product_key)
+
+                                if st.button("✅ Save", key=save_key):
+                                    if new_product.strip() and new_product not in all_products:
+                                        st.session_state[f"new_product_{sector}"] = new_product
+                                        st.session_state[f"new_product_{sector}_list"].append(st.session_state[f"new_product_{sector}"])
+                                        st.rerun()
+
+                            all_products.extend(st.session_state[f"new_product_{sector}_list"])
+
+                            # -- End new product and sector adding --
+
                             for product in all_products:
                                 with st.expander(f"{product}", expanded=False):
                                     df_product = df[
@@ -520,15 +584,6 @@ def upload_path(df, columns_to_show_selection):
                                         modified = True
             else:
                 for sector in unique_sectors:
-                    if sector == "No-AIDRES products":
-                        df_upload_other = df_upload[df_upload["sector_name"]
-                                                    == "No-AIDRES products"]
-                        dict_routes_other = {}
-                        for product in df_upload_other["product_name"].unique():
-
-                            dict_routes_other[f"{sector}_{product}"] = df_upload[df_upload["route_name"] == product]
-                        dict_routes_selected.update(dict_routes_other)
-                        continue
                     all_products = sorted(
                         df[df["sector_name"] == sector]["product_name"].unique()
                     )
@@ -554,9 +609,6 @@ def upload_path(df, columns_to_show_selection):
                         else:
                             st.warning(
                                 f"Sum of weights should be approximately 100%, not {total_weight:.2f}")
-
-        if any("No-AIDRES products" in key.split("_")[0] for key in dict_routes_selected.keys()):
-            modified = True
         # Check if modified or not
         if modified is True:
             pathway_name += " modified"
