@@ -54,7 +54,7 @@ def profile_load():
                 NUTS2_list = []
 
         scenario = st.select_slider(
-            "ENSPRESO Scenario", ["high", "medium", "low"])
+            "ENSPRESO Scenario", ["low", "medium", "high" ])
 
         # offshore
 
