@@ -28,8 +28,10 @@ st.markdown("""
     """)
 st.page_link("pages/2_Documentation.py",
              label="Documentation", icon="📖", use_container_width=True)
-st.page_link("pages/1_RES2Go.py", label="RES2Go",
+st.page_link("pages/1_RES2Go.py", label=" **RES2Go** ",
              icon="⚙️", use_container_width=True)
+st.page_link("pages/8_About.py", label="About",
+             icon="ℹ️", use_container_width=True)
 
 st.markdown("""
     *Contact us:*
