@@ -16,14 +16,19 @@ def export_to_txt(df):
     return df.to_csv(index=False)
 
 
-def import_to_dict(uploaded_file_or_path):
+def import_to_dataframe(uploaded_file_or_path):
     """
     Reads a .csv or .txt file into a DataFrame.
     Handles both Streamlit file uploader and local file paths.
+
+    Parameters:
+        uploaded_file_or_path (Union[str, UploadedFile]): Path or uploaded file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the file contents. Returns an empty DataFrame if invalid.
     """
     try:
         if hasattr(uploaded_file_or_path, "read"):  # Streamlit file uploader
-            # Read file content as string
             content = uploaded_file_or_path.read().decode("utf-8")
             df = pd.read_csv(StringIO(content), sep=",")
         elif isinstance(uploaded_file_or_path, str):  # Local file path
@@ -33,9 +38,11 @@ def import_to_dict(uploaded_file_or_path):
             return pd.DataFrame()
 
         # Validate required columns
-        required_columns = {"route_weight", "route_name"}
-        if not required_columns.issubset(df.columns):
+        required_columns = {"route_weight", "route_name", "sector_name", "product_name"}
+        missing_columns = required_columns - set(df.columns)
+        if missing_columns:
             st.error("The uploaded file does not contain the required format.")
+            st.error(f"Missing columns: {', '.join(missing_columns)}")
             return pd.DataFrame()
 
         return df

@@ -8,6 +8,9 @@ logo_side = "images/logo_side_bar.png"
 st.logo(logo_side, size="large",
         link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm", icon_image=logo)
 
+st.subheader("Methodology")
+st.markdown("""Methodology described in the preprint *link*.""")
+
 with st.expander(" **AIDRES** "):
         
         st.markdown("""

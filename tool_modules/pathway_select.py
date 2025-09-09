@@ -93,6 +93,33 @@ def select_page():
         st.session_state.sectors_list_new = []
     if "new_sector" not in st.session_state:
         st.session_state.new_sector = ""
+    if "df_new_sector" not in st.session_state:
+        st.session_state.df_new_sector = pd.DataFrame()
+
+    # Load and clean the per-ton configuration data
+    perton_path = "data/perton_all.csv"
+    perton_ALL_AIDRES = pd.read_csv(perton_path)
+
+
+    perton_ALL_AIDRES = perton_ALL_AIDRES.groupby(
+        "configuration_id").first().reset_index()
+
+    perton_ALL_AIDRES = process_configuration_dataframe(perton_ALL_AIDRES)
+
+    perton_ALL_no_mix_AIDRES = perton_ALL_AIDRES[~perton_ALL_AIDRES["configuration_name"].str.contains(
+        "mix")]
+
+    perton_ALL_no_mix_AIDRES["route_name"] = perton_ALL_no_mix_AIDRES["configuration_name"].replace(
+        "route_name")
+    
+    # Replace product names using the mapping
+    perton_ALL_no_mix_AIDRES["product_name"] = perton_ALL_no_mix_AIDRES["product_name"].replace(product_updates)
+
+
+    if "df_perton_ALL_sector" not in st.session_state: 
+        st.session_state.df_perton_ALL_sector = perton_ALL_no_mix_AIDRES
+
+
     
 
     # Prechoice radio doc link
@@ -111,25 +138,8 @@ def select_page():
         st.write(
             "Select a ready-made path, upload another path or create your path")
 
-        # Load and clean the per-ton configuration data
-        perton_path = "data/perton_all.csv"
-        perton_ALL = pd.read_csv(perton_path)
-
-
-        perton_ALL = perton_ALL.groupby(
-            "configuration_id").first().reset_index()
-
-        perton_ALL = process_configuration_dataframe(perton_ALL)
-
-        perton_ALL_no_mix = perton_ALL[~perton_ALL["configuration_name"].str.contains(
-            "mix")]
-
-        perton_ALL_no_mix["route_name"] = perton_ALL_no_mix["configuration_name"].replace(
-            "route_name")
-        
-        # Replace product names using the mapping
-        perton_ALL_no_mix["product_name"] = perton_ALL_no_mix["product_name"].replace(product_updates)
-                
+       
+       
 
         # Columns to be shown in the route selection editor
         columns_to_show_selection = [
@@ -153,16 +163,16 @@ def select_page():
         # --- EU-MIX AUTOMATED PATHWAY SELECTION ---
         if aidres_mix_checked:
             dict_routes_selected, selected_mix, pathway_name = preconfigure_path(
-                perton_ALL_no_mix, columns_to_show_selection)
+                st.session_state.df_perton_ALL_sector, columns_to_show_selection)
 
     # --- CUSTOM FROM-SCRATCH PATHWAY BUILDING ---
         if create_mix_checked:
             dict_routes_selected, pathway_name = create_path(
-                perton_ALL_no_mix, columns_to_show_selection)
+                st.session_state.df_perton_ALL_sector, columns_to_show_selection)
     # --- IMPORT PATHWAY FROM .txt FILE ---
         if upload_mix_checked:
             dict_routes_selected, pathway_name = upload_path(
-                perton_ALL_no_mix, columns_to_show_selection)
+                st.session_state.df_perton_ALL_sector, columns_to_show_selection)
         if any(not df.empty for df in dict_routes_selected.values()):
             # At least one DataFrame is not empty
 
@@ -185,7 +195,7 @@ def select_page():
                     st.session_state["Pathway name"] = {}
 
                 # Save button
-                if st.button("Save pathway"):
+                if st.button("Save pathway",type="primary"):
                     
                     if pathway_name.strip() == "":
                         st.warning("Please enter a name for the pathway.")
@@ -197,21 +207,23 @@ def select_page():
                         st.session_state.sectors_list_new = []
                         st.session_state.new_sector = ""
                         st.success(f"Pathway '{pathway_name}' saved.")
-                # Download button (triggers logic only when clicked)
-                if st.button("Download pathway"):
-                    if pathway_name.strip() == "":
-                        st.warning("Please enter a name for the pathway.")
-                    else:
-                        combined_df = pd.concat(
-                            dict_routes_selected.values(), ignore_index=True)
-                        exported_txt = export_to_txt(combined_df)
-                        st.download_button(
-                            label="Click here to download",
-                            data=exported_txt,
-                            file_name=f"ECM_Tool_{pathway_name}.txt",
-                            mime="text/plain",
-                            type="tertiary"
-                        )
+                if pathway_name.strip() == "":
+                    st.warning("Please enter a name for the pathway.")
+                else:
+                    # Combine all selected routes into a single DataFrame
+                    combined_df = pd.concat(dict_routes_selected.values(), ignore_index=True)
+                    
+                    # Export to text using your custom function
+                    exported_txt = export_to_txt(combined_df)
+
+                    # Direct download button
+                    st.download_button(
+                        label="Download Pathway",
+                        data=exported_txt,
+                        file_name=f"Pathway_{pathway_name}.csv",
+                        mime="text/plain",
+                        type="secondary"
+                    )
 
             else:
                 st.text("Please upload or create a pathway before saving.")

@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+from tool_modules.categorisation import *
 
 
 def eu_mix_configuration_id_weight(pathway_name):
@@ -20,7 +21,6 @@ def eu_mix_configuration_id_weight(pathway_name):
 
     # Load the configuration data
     model_configuration = pd.read_csv(model_config_path)
-
     # List of known EU-mix route names (to be excluded)
     eumix = ["EU-mix-2018", "EU-mix-2030", "EU-mix-2040", "EU-mix-2050"]
 
@@ -37,4 +37,25 @@ def eu_mix_configuration_id_weight(pathway_name):
     )
     df_upload["route_weight"] = df_upload[mix_column] * 100
 
-    return df_upload[columns]
+    # Load and clean the per-ton configuration data
+    perton_path = "data/perton_all.csv"
+    perton_ALL_AIDRES = pd.read_csv(perton_path)
+
+
+    perton_ALL_AIDRES = perton_ALL_AIDRES.groupby(
+        "configuration_id").first().reset_index()
+
+    perton_ALL_AIDRES = process_configuration_dataframe(perton_ALL_AIDRES)
+
+    # perton_ALL_mix_AIDRES = perton_ALL_AIDRES[perton_ALL_AIDRES["configuration_name"].str.contains(
+    #     "mix")]
+
+    df_upload = perton_ALL_AIDRES.merge(
+    df_upload[["configuration_id", "route_weight"]],
+    on="configuration_id",
+    how="inner",
+    
+)
+    df_upload["route_name"] = df_upload["configuration_name"]
+
+    return df_upload

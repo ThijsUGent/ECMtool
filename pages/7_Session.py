@@ -21,27 +21,29 @@ else:
                 st.rerun()
 
         pathways_list = list(st.session_state["Pathway name"].keys())
-        tab_list = st.tabs(pathways_list)
 
-        for i, pathway in enumerate(pathways_list):
-            with tab_list[i]:
-                st.markdown(f"### Pathway: **{pathway}**")
+        if pathways_list:  # Only create tabs if the list is non-empty
+            tab_list = st.tabs(pathways_list)
 
-                # Collect sector → product mapping from session_state
-                sector_map = {}
-                for sector_product, df in st.session_state["Pathway name"][pathway].items():
-                    # Expect keys in format "Sector_Product"
-                    parts = sector_product.split("_")
-                    if len(parts) < 2:
-                        continue
-                    sector, product = parts[0], "_".join(parts[1:])
+            for i, pathway in enumerate(pathways_list):
+                with tab_list[i]:
+                    st.markdown(f"### Pathway: **{pathway}**")
 
-                    if not df.empty:  # include only non-empty
-                        sector_map.setdefault(sector, []).append((product, df))
+                    # Collect sector → product mapping from session_state
+                    sector_map = {}
+                    for sector_product, df in st.session_state["Pathway name"][pathway].items():
+                        parts = sector_product.split("_")
+                        if len(parts) < 2:
+                            continue
+                        sector, product = parts[0], "_".join(parts[1:])
+                        if not df.empty:
+                            sector_map.setdefault(sector, []).append((product, df))
 
-                # Display each sector with its products
-                for sector, products in sector_map.items():
-                    with st.expander(f"Sector: {sector}"):
-                        for product, df in products:
-                            st.write(f"**Product:** {product}")
-                            st.dataframe(df)
+                    # Display each sector with its products
+                    for sector, products in sector_map.items():
+                        with st.expander(f"Sector: {sector}"):
+                            for product, df in products:
+                                st.write(f"**Product:** {product}")
+                                st.dataframe(df)
+        else:
+            st.info("No pathways available to display.")

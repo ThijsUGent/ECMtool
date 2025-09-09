@@ -13,7 +13,9 @@ dict_product_by_sector = {
     "Steel": ["Primary steel", "Secondary steel"],
 }
 
-sectors_list = list(dict_product_by_sector.keys())
+
+sectors_list_AIDRES = list(dict_product_by_sector.keys())
+sectors_list_all = sectors_list_AIDRES + st.session_state.get("sectors_list_new", [])
 new_sectors_list = []
 new_product_list = []
 
@@ -76,21 +78,18 @@ def cluster_configuration():
                 st.success(f"Cluster '{cluster_name}' saved.")
 
         # Download button (triggers logic only when clicked)
-        if st.button("Download Cluster"):
             if cluster_name.strip() == "":
                 st.warning("Please enter a name for the cluster.")
             else:
                 combined_df = pd.concat([df_cluster], ignore_index=True)
-                exported_txt = combined_df.to_csv(
-                    index=False, sep=","
-                )
+                exported_txt = combined_df.to_csv(index=False, sep=",")
 
                 st.download_button(
-                    label="Click here to download",
+                    label="Download Cluster",
                     data=exported_txt,
-                    file_name=f"ECM_Tool_{cluster_name}.txt",
+                    file_name=f"Cluster_{cluster_name}.csv",
                     mime="text/plain",
-                    type="tertiary"
+                    type="secondary"
                 )
 
         else:
@@ -101,12 +100,8 @@ def _cluster_product_selection():
     # Dictionary to collect selected sites per sector-product
     dict_cluster_selected = {}
 
-    sectors_list_all = ["Cement", "Chemical",
-                        "Fertilisers", "Glass", "Refineries", "Steel"]
-    sectors_list_plus_other = sectors_list_all + new_sectors_list 
-
     selected_sectors = st.pills(
-        "Sector(s)", sectors_list_plus_other, selection_mode="multi"
+        "Sector(s)", sectors_list_all, selection_mode="multi"
     )
 
     if not selected_sectors:
@@ -117,7 +112,7 @@ def _cluster_product_selection():
 
     for i, sector in enumerate(selected_sectors):
         with tabs[i]:
-            all_products = dict_product_by_sector[sector]
+            all_products = list(st.session_state.df_perton_ALL_sector[st.session_state.df_perton_ALL_sector["sector_name"] == sector]["product_name"].unique())
             for product in all_products:
 
                 with st.expander(f"{product}", expanded=False):
@@ -174,9 +169,9 @@ def upload_cluster():
     # Initialization
     df_cluster = pd.DataFrame()
     modified = False
-    st.text("Drag & drop .txt cluster file")
+    st.text("Drag & drop .csv cluster file")
     uploaded_file = st.file_uploader(
-        "Upload your cluster file here", type=["txt"]
+        "Upload your cluster file here", type=["csv"]
     )
     cluster_name = "Upload file"
     if uploaded_file:

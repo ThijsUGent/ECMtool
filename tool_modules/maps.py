@@ -518,7 +518,7 @@ def map_per_pathway():
                         label="Download cluster configuration",
                         data=df_filtered_cluster_download.to_csv(
                             index=False, sep=","),
-                        file_name=f"ECM_Tool_{cluster}_cluster.txt",
+                        file_name=f"Cluster_{cluster}_cluster.csv",
                         mime='text/plain'
                     )
         with st.expander("File sites energy consumption (GEOJson PyPSA compatible)"):
@@ -683,47 +683,59 @@ def _tree_map(df):
 
         st.plotly_chart(fig)
 
-
 def _sankey(df, unit):
     if df is not None:
-        energy_cols = [col for col in df.columns if any(
-            col.startswith(feed) for feed in type_ener_feed)]
+        # Energy columns (e.g., electricity_gj, coal_gj)
+        energy_cols = [col for col in df.columns if any(col.startswith(feed) for feed in type_ener_feed)]
 
-        # Option 1: remove last underscore segment and join with space
+        # Carrier labels (remove last underscore segment)
         carrier_labels = [" ".join(col.split("_")[:-1]) for col in energy_cols]
 
+        # Sector and product labels
         sector_labels = df['aidres_sector_name'].unique().tolist()
+        product_labels = df['product_name'].unique().tolist()
 
-        labels = carrier_labels + sector_labels
+        # Combine all labels for the Sankey nodes
+        labels = carrier_labels + sector_labels + product_labels
         label_indices = {label: i for i, label in enumerate(labels)}
 
         sources, targets, values = [], [], []
 
         for _, row in df.iterrows():
             sector = row['aidres_sector_name']
+            product = row['product_name']
+            sector_idx = label_indices[sector]
+            product_idx = label_indices[product]
+
             for i, col in enumerate(energy_cols):
                 value = row[col]
                 if pd.notna(value) and value > 0:
-                    source_label = carrier_labels[i]
-                    sources.append(label_indices[source_label])
-                    targets.append(label_indices[sector])
+                    # Link: carrier -> sector
+                    sources.append(label_indices[carrier_labels[i]])
+                    targets.append(sector_idx)
                     values.append(value)
 
+                    # Link: sector -> product
+                    sources.append(sector_idx)
+                    targets.append(product_idx)
+                    values.append(value)
+
+        # Link colors based on source (carrier)
         link_colors = []
         for s in sources:
             carrier_label = labels[s]
             link_colors.append(color_map.get(carrier_label, 'lightgray'))
 
+        # Node colors
         node_colors = []
-
-        # assign colors per node, not per source link
         for label in labels:
             if label in color_map:
-                # carrier node color
                 node_colors.append(color_map[label])
+            elif label in sector_labels:
+                node_colors.append('lightgrey')  # sector color
             else:
-                # sector node color
-                node_colors.append('lightgrey')
+                node_colors.append('darkgrey')   # product color
+
         fig = go.Figure(data=[go.Sankey(
             node=dict(
                 pad=15,
@@ -738,20 +750,20 @@ def _sankey(df, unit):
                 color=link_colors
             )
         )])
+
         total_energy = df["total_energy"].sum()
         total_energy, unit_real = energy_convert(total_energy, unit)
 
         fig.update_layout(
             hovermode='x',
             title=dict(
-                text=f"Energy Carrier to Sector <br> <sub> Total energy per annum: {total_energy:.2f} {unit_real}</sub>"
+                text=f"Energy Carrier → Sector → Product <br> <sub>Total energy per annum: {total_energy:.2f} {unit_real}</sub>"
             ),
             font=dict(color="black", size=12),
             hoverlabel=dict(font=dict(color="black"))
         )
 
         st.plotly_chart(fig, use_container_width=True)
-
 
 def _get_utilization_rates(sectors):
     sector_utilization_defaut = {
