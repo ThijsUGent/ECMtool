@@ -171,6 +171,11 @@ def edit_dataframe_selection_and_weighting(df_product, columns_to_show_selection
             ~edited_selected_df["route_name"].isin(st.session_state.df_perton_ALL_sector["route_name"])
         ]
         if not new_rows.empty:
+            new_rows = st.session_state.df_new_sector[
+            ~st.session_state.df_new_sector['route_name'].isin(st.session_state.df_perton_ALL_sector['route_name'])
+        ]
+
+            # Concatenate safely
             st.session_state.df_perton_ALL_sector = pd.concat(
                 [st.session_state.df_perton_ALL_sector, new_rows],
                 ignore_index=True
@@ -278,7 +283,16 @@ def upload_path(df, columns_to_show_selection):
         df_upload = import_to_dataframe(uploaded_file)
         # Append new sectors
         _append_new_sectors(df_upload)
-        st.session_state.df_perton_ALL_sector = pd.concat([st.session_state.df_perton_ALL_sector, st.session_state.df_new_sector], ignore_index=True)
+        # Get only new rows where 'route_name' is not already in the existing DataFrame
+        new_rows = st.session_state.df_new_sector[
+            ~st.session_state.df_new_sector['route_name'].isin(st.session_state.df_perton_ALL_sector['route_name'])
+        ]
+
+        # Concatenate safely
+        st.session_state.df_perton_ALL_sector = pd.concat(
+            [st.session_state.df_perton_ALL_sector, new_rows],
+            ignore_index=True
+        )
 
         dict_routes_selected, modified = _edit_pathway_ui(st.session_state.df_perton_ALL_sector, df_upload, sorted(df_upload["sector_name"].unique()), columns_to_show_selection)
         if modified:
@@ -394,7 +408,7 @@ def _edit_pathway_ui(df, df_upload, sectors_list, columns_to_show_selection, mod
 
                         if was_modified:
                             modified = True
-
+    st.write(dict_routes_selected)
     return dict_routes_selected, modified
 # -------------------------------
 # Internal helper: append new sectors from uploaded file

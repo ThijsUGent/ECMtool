@@ -11,8 +11,19 @@ def view_page():
         return
 
     # Initialisation of all sectors
-    sectors_all_list = ["Chemical", "Cement",
-                        "Refineries", "Fertilisers", "Steel", "Glass", "No-AIDRES products"]
+    # Existing dictionary
+    dict_product_by_sector = {
+        "Cement": ["Cement product"],
+        "Chemical": ["Polyethylene", "Polyethylene acetate", "Olefins"],
+        "Fertilisers": ["Ammonia", "Nitric acid", "Urea"],
+        "Glass": ["Container glass", "Glass fibre", "Float glass"],
+        "Refineries": ["Light liquid fuel"],
+        "Steel": ["Primary steel", "Secondary steel"],
+    }
+
+    sectors_list_AIDRES = list(dict_product_by_sector.keys())
+    sectors_list_all = sectors_list_AIDRES + st.session_state.get("sectors_list_new", [])
+
 
     # Select number of pathway to display
     pathway_names = list(st.session_state["Pathway name"].keys())
@@ -24,7 +35,7 @@ def view_page():
 
     # Select one sector to display
     selected_sector = st.segmented_control(
-        "Select a sector", sectors_all_list, default=sectors_all_list[0])
+        "Select a sector", sectors_list_all, default=sectors_list_all[0])
 
     cols = st.columns(number_to_display)
 

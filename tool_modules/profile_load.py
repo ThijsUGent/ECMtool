@@ -31,19 +31,24 @@ def profile_load():
         if method_choice == "From cluster":
             if "saved_clusters" in st.session_state:
                 df_cluster = st.session_state["saved_clusters"]
-                cluster_names = df_cluster["name"].unique()
-                cluster_selected = st.selectbox(
-                    'Cluster name', cluster_names)
-                NUTS2_list = [
-                    nuts for nuts in df_cluster[df_cluster["name"] == cluster_selected]["NUTS2"].values[0]]
-                elec_demand = df_cluster[df_cluster["name"]
-                                         == cluster_selected]["electricity"].iloc[0]
-                unit = df_cluster[df_cluster["name"] ==
-                                  cluster_selected]["unit"].iloc[0]
-                if unit == "GJ":
-                    index_unit = 0
+                if df_cluster is not None and not df_cluster.empty:
+                    cluster_names = df_cluster["name"].unique()
+                    cluster_selected = st.selectbox(
+                        'Cluster name', cluster_names)
+                    NUTS2_list = [
+                        nuts for nuts in df_cluster[df_cluster["name"] == cluster_selected]["NUTS2"].values[0]]
+                    elec_demand = df_cluster[df_cluster["name"]
+                                            == cluster_selected]["electricity"].iloc[0]
+                    unit = df_cluster[df_cluster["name"] ==
+                                    cluster_selected]["unit"].iloc[0]
+                    if unit == "GJ":
+                        index_unit = 0
+                else:
+                    st.warning("No saved clusters in session state.")
+                    return
             else:
                 st.warning("No saved clusters in session state.")
+                return
         else:
             country = st.text_input(
                 "Enter country code (e.g. 'DE')", value="BE")
@@ -106,7 +111,7 @@ def profile_load():
         year = st.slider("Select year for solar/wind data", 1986, 2015, 2015)
 
         data_source = st.radio("Select industry data source", [
-                               "ELMAS", "JERICHO-E"])
+                               "ELMAS"])
         if data_source == "JERICHO-E":
             sector = st.radio(
                 "Select a sector",

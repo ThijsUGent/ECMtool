@@ -1,6 +1,6 @@
 def energy_convert(value, unit, elec=False):
     """
-    Converts energy or emission values to more readable units.
+    Converts energy or emission values to more readable units with 2 significant figures.
 
     Parameters:
         value (float): The input value.
@@ -10,38 +10,45 @@ def energy_convert(value, unit, elec=False):
     Returns:
         (converted_value, new_unit): Tuple with converted float and unit.
     """
+    def round_sf(x, sf=2):
+        """Round x to sf significant figures."""
+        if x == 0:
+            return 0
+        from math import log10, floor
+        return round(x, -int(floor(log10(abs(x)))) + (sf - 1))
+
     # Handle emissions (convert to tonnes first)
     if unit == "kt":
         if value >= 1_000:
-            return round(value / 1_000_000, 2), "Mt"
+            return round_sf(value / 1_000_000), "Mt"
         else:
-            return round(value, 2), "kt"
+            return round_sf(value), "kt"
 
     if unit == "t":
         if value >= 1_000_000:
-            return round(value / 1_000_000, 2), "Mt"
+            return round_sf(value / 1_000_000), "Mt"
         elif value >= 1_000:
-            return round(value / 1_000, 2), "kt"
+            return round_sf(value / 1_000), "kt"
         else:
-            return round(value, 2), "t"
+            return round_sf(value), "t"
 
     # Handle electricity
     if elec:
         # 1 GJ = 0.277778 MWh
         value_mwh = value * 0.277778
         if value_mwh >= 1_000_000:
-            return round(value_mwh / 1_000_000), "TWh"
+            return round_sf(value_mwh / 1_000_000), "TWh"
         else:
-            return round(value_mwh), "MWh"
+            return round_sf(value_mwh), "MWh"
 
     # Handle generic energy conversion from GJ
     if unit == "GJ":
         if value >= 1_000_000:
-            return round(value / 1_000_000), "PJ"
+            return round_sf(value / 1_000_000), "PJ"
         elif value >= 1_000:
-            return round(value / 1_000), "TJ"
+            return round_sf(value / 1_000), "TJ"
         else:
-            return round(value), "GJ"
+            return round_sf(value), "GJ"
 
     # Fallback if unknown unit
-    return round(value), unit
+    return round_sf(value), unit

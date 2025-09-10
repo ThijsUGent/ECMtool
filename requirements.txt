@@ -17,3 +17,5 @@ streamlit
 streamlit-antd-components
 plotly
 st-gsheets-connection
+floweaver>=0.7.0
+networkx>=3.1

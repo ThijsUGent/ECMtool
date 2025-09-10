@@ -251,7 +251,6 @@ def summarise_clusters_by_centroid(gdf_clustered):
 
     gdf_summary = gpd.GeoDataFrame(
         gdf_summary, geometry='geometry', crs="EPSG:4326")
-
     return gdf_summary
 
 

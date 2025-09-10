@@ -22,6 +22,7 @@ from geopy.distance import geodesic
 
 from tool_modules.clustering import *
 from tool_modules.convert import *
+from tool_modules.graph_output import *
 
 type_ener_feed = ["electricity_[mwh/t]",
                   "electricity_[gj/t]",
@@ -104,9 +105,9 @@ def _get_radius(df):
 def map_per_utlisation_rate():
     st.write("In progress")
 product_updates = {
-    "cement": "Cement",
+    "cement": "Cement product",
     "chemical-PE": "Polyethylene",
-    "chemical-PEA": "Polyethylene acetate",
+    "chemical-PEA": "Poly-ethyl-acetate",
     "chemical-olefins": "Olefins",
     "fertiliser-ammonia": "Ammonia",
     "fertiliser-nitric-acid": "Nitric acid",
@@ -181,7 +182,7 @@ def map_per_pathway():
 
     # Initialisation of all sectors
     sectors_all_list = ["Chemical", "Cement",
-                        "Refineries", "Fertilisers", "Steel", "Glass"]
+                        "Refineries", "Fertilisers", "Steel", "Glass"] 
 
     type_ener_feed_gj = [item for item in type_ener_feed if "[gj/t]" in item]
     type_ener_feed_t = [item for item in type_ener_feed if "[t/t]" in item]
@@ -396,17 +397,27 @@ def map_per_pathway():
             st.markdown(
                 """*Click on a cluster centroid to see details **below the map***""")
             st.divider()
-            # --- Toggle appears directly under the map ---
-            if "legend_show_last" not in st.session_state:
-                st.session_state["legend_show_last"] = True
 
-            st.session_state["legend_show"] = st.toggle(
-                "Show legend", value=st.session_state["legend_show_last"])
+            # --- Toggle appears directly under the map ---
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state["legend_show"] = st.checkbox(
+                    "Show legend", value=st.session_state.get("legend_show_last", True)
+                )
+            with col2:
+                show_polygon = st.checkbox("Show polygon", value=True)
 
             st.markdown(f"Energy clusters from {pathway} using {choice}")
+            ## ADD POLYGON LAYER 
+            if show_polygon:
+                extra_layer_polygon=mapping_cluster_polygons(dict_gdf_clustered[pathway])
+            else:
+                extra_layer_polygon= None
+
             df_selected = _mapping_chart_per_ener_feed_cluster(
-                gdf_clustered_centroid, color_map, unit, gdf_layer)
+                gdf_clustered_centroid, color_map, unit, extra_layer=extra_layer_polygon)
             st.divider()
+
         if map_choice == "site":
             df_selected = None
             color_choice = st.radio(
@@ -430,20 +441,21 @@ def map_per_pathway():
             _chart_site(df_selected_site, unit)
 
         if df_selected is not None:
+            
             chart = st.radio("Select an option ", ["Treemap",
                              "Sankey Diagram"])
             df_filtered_cluster = _site_within_cluster(
                 df_selected, pathway, dict_gdf_clustered)
             if chart == "Treemap":
-                _tree_map(df_selected)
+                tree_map(df_selected)
             elif chart == "Sankey Diagram":
-                _sankey(df_filtered_cluster, unit)
+                sankey(df_filtered_cluster, unit)
             # CO2
             if isinstance(df_selected, pd.DataFrame) and not df_selected.empty:
                 emission = df_selected["Direct CO2 emissions (t)"].iloc[0]
-                emission, unit = energy_convert(emission, "t", elec=False)
+                emission, unit_CO2 = energy_convert(emission, "t", elec=False)
                 st.write(
-                    f"Direct CO2 emissions per annum : {emission:.2f} {unit}")
+                    f"Direct CO2 emissions per annum : {emission:.2f} {unit_CO2}")
             with st.expander("Time profiles"):
                 # Step 1: Extract NUTS3 codes
                 NUTS3_cluster_list = df_filtered_cluster["nuts3_code"].unique(
@@ -497,11 +509,9 @@ def map_per_pathway():
             with st.expander("Show or download sites within the cluster"):
                 st.text(
                     "It is possible to download the cluster configuration to use it in the cluster tool")
-                if df_filtered_cluster is not None:
-
+                if df_filtered_cluster is not None and unit == "GJ":
                     ############
                     df_filtered_cluster["unit"] = unit
-                    st.write(df_filtered_cluster)
                     df_filtered_cluster_show = df_filtered_cluster[[
                         "site_name", "aidres_sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "Direct CO2 emissions (t)", "unit", "nuts3_code", "geometry"]]
 
@@ -510,20 +520,23 @@ def map_per_pathway():
                             'utilization rate', 'utilisation rate').replace("site_name", "site").replace("aidres_sector_name", "sector").replace("product_name", "product").replace("prod_cap", "production capacity (kt)").replace("prod_rate", "production rate (kt)").replace("total_energy", "total energy")
                         for col in df_filtered_cluster_show.columns
                     ]
-                    df_filtered_cluster_download = df_filtered_cluster_show[[
-                        "site", "sector", "product", "production capacity (kt)"]]
+                    df_filtered_cluster_download = df_filtered_cluster[["site_name", "sector_name", "product_name", "prod_cap", "prod_rate", "utilization_rate", "total_energy", "Direct CO2 emissions (t)", "unit", "nuts3_code"]]
+                    st.write(df_filtered_cluster_show)
                     cluster = st.text_input(
                         "Enter a name for the cluster",)
                     st.download_button(
                         label="Download cluster configuration",
                         data=df_filtered_cluster_download.to_csv(
                             index=False, sep=","),
-                        file_name=f"Cluster_{cluster}_cluster.csv",
+                        file_name=f"Cluster_{cluster}.csv",
                         mime='text/plain'
                     )
+                else : 
+                    st.warning("Please select GJ unit")
         with st.expander("File sites energy consumption (GEOJson PyPSA compatible)"):
+            if unit == "GJ":
 
-            cols = [
+                cols = [
                 "site_name",
                 "nuts3_code",
                 "cluster",
@@ -551,50 +564,52 @@ def map_per_pathway():
                 "total_energy",
                 "Direct CO2 emissions (t)"
             ]
-            st.write(mapped_sites[cols])
-            # Filter + select columns
-            columns_nienke = [
-                "site_name",
-                "geometry",
-                "electricity_[gj/t] ton",
-                "alternative_fuel_mixture_[gj/t] ton",
-                "biomass_[gj/t] ton",
-                "biomass_waste_[gj/t] ton",
-                "coal_[gj/t] ton",
-                "coke_[gj/t] ton",
-                "crude_oil_[gj/t] ton",
-                "hydrogen_[gj/t] ton",
-                "methanol_[gj/t] ton",
-                "ammonia_[gj/t] ton",
-                "naphtha_[gj/t] ton",
-                "natural_gas_[gj/t] ton",
-                "plastic_mix_[gj/t] ton",
-                "total_energy",
-            ]
-            # select columns
-            mapped_sites = mapped_sites[columns_nienke]
+                st.write(mapped_sites[cols])
+                # Filter + select columns
+                columns_nienke = [
+                    "site_name",
+                    "geometry",
+                    "electricity_[gj/t] ton",
+                    "alternative_fuel_mixture_[gj/t] ton",
+                    "biomass_[gj/t] ton",
+                    "biomass_waste_[gj/t] ton",
+                    "coal_[gj/t] ton",
+                    "coke_[gj/t] ton",
+                    "crude_oil_[gj/t] ton",
+                    "hydrogen_[gj/t] ton",
+                    "methanol_[gj/t] ton",
+                    "ammonia_[gj/t] ton",
+                    "naphtha_[gj/t] ton",
+                    "natural_gas_[gj/t] ton",
+                    "plastic_mix_[gj/t] ton",
+                    "total_energy",
+                ]
+                # select columns
+                mapped_sites = mapped_sites[columns_nienke]
 
-            # Convert geometry from WKT if needed
-            if isinstance(mapped_sites["geometry"].iloc[0], str):
-                mapped_sites["geometry"] = mapped_sites["geometry"].apply(
-                    wkt.loads)
+                # Convert geometry from WKT if needed
+                if isinstance(mapped_sites["geometry"].iloc[0], str):
+                    mapped_sites["geometry"] = mapped_sites["geometry"].apply(
+                        wkt.loads)
 
-            # Convert to GeoDataFrame
-            gdf = gpd.GeoDataFrame(
-                mapped_sites, geometry="geometry", crs="EPSG:4326")
+                # Convert to GeoDataFrame
+                gdf = gpd.GeoDataFrame(
+                    mapped_sites, geometry="geometry", crs="EPSG:4326")
 
-            # Write GeoJSON to BytesIO
-            buffer = io.BytesIO()
-            gdf.to_file(buffer, driver="GeoJSON")
-            buffer.seek(0)  # reset pointer
+                # Write GeoJSON to BytesIO
+                buffer = io.BytesIO()
+                gdf.to_file(buffer, driver="GeoJSON")
+                buffer.seek (0)  # reset pointer
 
-            # Streamlit download button
-            st.download_button(
-                label="Download GeoJSON for PyPSA",
-                data=buffer,
-                file_name=f"{pathway}_{'_'.join(country_codes)}.geojson",
-                mime="application/geo+json"
-            )
+                # Streamlit download button
+                st.download_button(
+                    label="Download GeoJSON for PyPSA",
+                    data=buffer,
+                    file_name=f"{pathway}_{'_'.join(country_codes)}.geojson",
+                    mime="application/geo+json"
+                )   
+            else :
+                st.warning("Select GJ unit")
 
 
 def _chart_site(df, unit):
@@ -623,7 +638,6 @@ def _chart_site(df, unit):
 
     # Only keep columns that exist in df
     existing_cols = [col for col in desired_cols if col in df.columns]
-
     st.write(df[existing_cols])
 
 
@@ -636,134 +650,6 @@ def _site_within_cluster(df_selected, pathway, dict_gdf_clustered):
     else:
         return None
 
-
-def _tree_map(df):
-    if df is not None and not df.empty:
-        # Select relevant columns
-        columns_plot = [
-            col for col in df.columns
-            if any(col.startswith(feed.split("_")[0]) for feed in type_ener_feed)
-        ]
-        # Extract the single row of interest
-        row = df.iloc[0]
-        if columns_plot == ["electricity"]:
-            elec = True
-        else:
-            elec = False
-        # Prepare long-form dataframe for plotting
-        df_long = pd.DataFrame({
-            "energy_source": columns_plot,
-            "value": [row[col] for col in columns_plot],
-            # fallback colour
-            "color_value": [color_map.get(col, "#cccccc") for col in columns_plot],
-        })
-
-        # Add cleaned label and unit
-        df_long["label"] = df_long["energy_source"].str.replace(
-            r"_\[.*?\]$", "", regex=True).str.replace("_", " ")
-        df_long["unit"] = row["unit"] if "unit" in row else ""
-
-        # Total energy calculation and conversion
-        total_energy = df_long["value"].sum()
-        unit = df_long["unit"].iloc[0]
-        total_energy, unit_real = energy_convert(total_energy, unit, elec)
-        # Create treemap
-        fig = px.treemap(
-            df_long,
-            path=["label"],
-            values="value",
-            color="energy_source",
-            hover_data={"value": True, "unit": True},
-            color_discrete_map=dict(
-                zip(df_long["energy_source"], df_long["color_value"]))
-        )
-
-        fig.update_layout(
-            title_text=f"Energy Use Breakdown<br><sub>Total energy per annum: {total_energy} {unit_real}</sub>")
-
-        st.plotly_chart(fig)
-
-def _sankey(df, unit):
-    if df is not None:
-        # Energy columns (e.g., electricity_gj, coal_gj)
-        energy_cols = [col for col in df.columns if any(col.startswith(feed) for feed in type_ener_feed)]
-
-        # Carrier labels (remove last underscore segment)
-        carrier_labels = [" ".join(col.split("_")[:-1]) for col in energy_cols]
-
-        # Sector and product labels
-        sector_labels = df['aidres_sector_name'].unique().tolist()
-        product_labels = df['product_name'].unique().tolist()
-
-        # Combine all labels for the Sankey nodes
-        labels = carrier_labels + sector_labels + product_labels
-        label_indices = {label: i for i, label in enumerate(labels)}
-
-        sources, targets, values = [], [], []
-
-        for _, row in df.iterrows():
-            sector = row['aidres_sector_name']
-            product = row['product_name']
-            sector_idx = label_indices[sector]
-            product_idx = label_indices[product]
-
-            for i, col in enumerate(energy_cols):
-                value = row[col]
-                if pd.notna(value) and value > 0:
-                    # Link: carrier -> sector
-                    sources.append(label_indices[carrier_labels[i]])
-                    targets.append(sector_idx)
-                    values.append(value)
-
-                    # Link: sector -> product
-                    sources.append(sector_idx)
-                    targets.append(product_idx)
-                    values.append(value)
-
-        # Link colors based on source (carrier)
-        link_colors = []
-        for s in sources:
-            carrier_label = labels[s]
-            link_colors.append(color_map.get(carrier_label, 'lightgray'))
-
-        # Node colors
-        node_colors = []
-        for label in labels:
-            if label in color_map:
-                node_colors.append(color_map[label])
-            elif label in sector_labels:
-                node_colors.append('lightgrey')  # sector color
-            else:
-                node_colors.append('darkgrey')   # product color
-
-        fig = go.Figure(data=[go.Sankey(
-            node=dict(
-                pad=15,
-                line=dict(color="black", width=0.2),
-                label=labels,
-                color=node_colors,
-            ),
-            link=dict(
-                source=sources,
-                target=targets,
-                value=values,
-                color=link_colors
-            )
-        )])
-
-        total_energy = df["total_energy"].sum()
-        total_energy, unit_real = energy_convert(total_energy, unit)
-
-        fig.update_layout(
-            hovermode='x',
-            title=dict(
-                text=f"Energy Carrier → Sector → Product <br> <sub>Total energy per annum: {total_energy:.2f} {unit_real}</sub>"
-            ),
-            font=dict(color="black", size=12),
-            hoverlabel=dict(font=dict(color="black"))
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
 
 def _get_utilization_rates(sectors):
     sector_utilization_defaut = {
@@ -786,16 +672,11 @@ def _get_utilization_rates(sectors):
 def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     perton = st.session_state["Pathway name"][pathway]
 
-
     list_keys = list(perton.keys())
     sectors_list = []
     for key in list_keys:
         sectors_list.append(key.split("_")[0])
     unique_sectors = set(sectors_list)
-    if unique_sectors == {"No-AIDRES products"}:
-
-        return None
-
         # Convert WKB hex to geometry
     df['geometry'] = df['geom'].apply(lambda x: wkb.loads(bytes.fromhex(x)))
 
@@ -896,7 +777,7 @@ def _get_gdf_prod_x_perton(df, pathway, sector_utilization, selected_columns):
     return gdf_prod_x_perton
 
 
-def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
+def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, extra_layer = None):
     """
     Generates an interactive pydeck map with pie chart icons representing energy feedstock
     distribution cluster location on a GeoDataFrame.
@@ -1037,17 +918,8 @@ def _mapping_chart_per_ener_feed_cluster(gdf, color_map, unit, gdf_layer):
     # Layers list to hold pydeck layers.
     layers = []
 
-    # Optionally add an extra GeoJson layer if provided.
-    if gdf_layer is not None and not gdf_layer.empty:
-        extra_layer = pdk.Layer(
-            "GeoJsonLayer",
-            id="geojson_layer",
-            data=gdf_layer,
-            get_fill_color=[0, 0, 255, 50],  # semi-transparent blue fill
-            get_line_color=[0, 0, 180],      # blue borders
-            line_width_min_pixels=1,
-            pickable=True
-        )
+    # Optionally add an extra polygon layer if provided.
+    if extra_layer is not None :
         layers.append(extra_layer)
 
     # Add the pie chart icons as an IconLayer.
@@ -1431,57 +1303,50 @@ def _run_clustering(choice, gdf, param1, param2, param4):
     else:
         return gdf
 
+def mapping_cluster_polygons(gdf):
+    import pydeck as pdk
+    import streamlit as st
+    import pandas as pd
+    from shapely.geometry import MultiPoint, Polygon
+    gdf['lon'] = gdf.geometry.x
+    gdf['lat'] = gdf.geometry.y
 
-def _layer_RES_generation():
+    # --- Ensure cluster column exists ---
+    if "cluster" not in gdf.columns:
+        return st.warning("No 'cluster' column found in GeoDataFrame")
 
-    # Load the shapefile
-    shapefile_path = "data/NUTS/NUTS_RG_20M_2021_4326/NUTS_RG_20M_2021_4326.shp"
-    gdf = gpd.read_file(shapefile_path)
+    # --- Filter out noise clusters if needed ---
+    cluster_ids = [c for c in gdf["cluster"].unique() if c != -1]
 
-    # Filter for NUTS level 3 regions
-    gdf = gdf[gdf["LEVL_CODE"] == 3]
+    # --- Polygon layer for clusters ---
+    polygons = []
+    for cluster_id in gdf["cluster"].unique():
+        if cluster_id == -1:
+            continue
+        cluster_points = gdf[gdf["cluster"] == cluster_id]
+        if len(cluster_points) >= 3:  # Need at least 3 points for polygon
+            hull = cluster_points.unary_union.convex_hull
+            if hull.geom_type == "Polygon":
+                poly_coords = [[list(coord) for coord in hull.exterior.coords]]
+                polygons.append({
+                    "polygon": poly_coords[0]
+                })
 
-    # Load the Excel file, skipping the first 10 rows
-    nuts3_area_df = pd.read_excel(
-        "data/NUTS/NUTS3_area.xlsx", sheet_name=2, skiprows=9)
-
-    # Drop empty columns and the third column (index 2)
-    nuts3_area_df = nuts3_area_df.dropna(axis=1, how="all")
-    nuts3_area_df = nuts3_area_df.drop(nuts3_area_df.columns[2], axis=1)
-
-    # Rename relevant columns
-    nuts3_area_df.rename(
-        columns={"GEO (Labels)": "NUTS_NAME", "Unnamed: 1": "Area(km2)"}, inplace=True
+    polygon_layer = pdk.Layer(
+        "PolygonLayer",
+        data=polygons,
+        get_polygon="polygon",
+        get_fill_color=[128, 128, 128, 80],  # semi-transparent grey
+        pickable=False,
+        stroked=True,
+        get_line_color=[0, 0, 0],            # black border
+        line_width_min_pixels=0.5,
     )
 
-    # Merge the GeoDataFrame with the area DataFrame
-    gdf_NUTS3_area = pd.merge(
-        gdf[["NUTS_ID", "NUTS_NAME", "geometry"]],
-        nuts3_area_df[["NUTS_NAME", "Area(km2)"]],
-        on="NUTS_NAME",
-    )
-    RES_prod_2023_solar = pd.read_excel(
-        "data/Energy_production/Production_Solar_wind.xlsx", sheet_name="solar", skiprows=0
-    )
-    RES_prod_2023_onshore = pd.read_excel(
-        "data/Energy_production/Production_Solar_wind.xlsx",
-        sheet_name="windonshore",
-        skiprows=0,
-    )
-    # Map wind and solar data
-    gdf_NUTS3_area["wind (MWh/km2)"] = gdf_NUTS3_area["NUTS_ID"].map(
-        RES_prod_2023_onshore.set_index("NUTS")["Value"]
+    view_state = pdk.ViewState(
+        latitude=gdf["lat"].mean(),
+        longitude=gdf["lon"].mean(),
+        zoom=5
     )
 
-    gdf_NUTS3_area["solar (MWh/km2)"] = gdf_NUTS3_area["NUTS_ID"].map(
-        RES_prod_2023_solar.set_index("NUTS")["Value"]
-    )
-    gdf_NUTS3_area = gdf_NUTS3_area.dropna(subset=["wind (MWh/km2)"])
-    gdf_NUTS3_area["solar (MWh)"] = (
-        gdf_NUTS3_area["Area(km2)"] * gdf_NUTS3_area["solar (MWh/km2)"]
-    )
-    gdf_NUTS3_area["wind (MWh)"] = (
-        gdf_NUTS3_area["Area(km2)"] * gdf_NUTS3_area["wind (MWh/km2)"]
-    )
-
-    return gdf_NUTS3_area
+    return polygon_layer  # optional, for debugging or further processing

@@ -3,9 +3,10 @@ import pandas as pd
 import numpy as np
 
 
+
 # Existing dictionary
 dict_product_by_sector = {
-    "Cement": ["Cement"],
+    "Cement": ["Cement product"],
     "Chemical": ["Polyethylene", "Polyethylene acetate", "Olefins"],
     "Fertilisers": ["Ammonia", "Nitric acid", "Urea"],
     "Glass": ["Container glass", "Glass fibre", "Float glass"],
@@ -13,37 +14,24 @@ dict_product_by_sector = {
     "Steel": ["Primary steel", "Secondary steel"],
 }
 
-
 sectors_list_AIDRES = list(dict_product_by_sector.keys())
-sectors_list_all = sectors_list_AIDRES + st.session_state.get("sectors_list_new", [])
-new_sectors_list = []
-new_product_list = []
+new_sector_list = st.session_state["sectors_list_new"]
+sectors_list_all = list(sectors_list_AIDRES + new_sector_list)
 
-for key in st.session_state.keys():
-    if key.startswith("new_product_") and key.endswith("_list"):
-        # Extract the sector name between "new_product_" and "_list"
-        sector_name = key[len("new_product_"):-len("_list")]
-
-        if isinstance(st.session_state[key], list):
-            new_products = [f"{item}" for item in st.session_state[key]]
-            new_product_list.extend(new_products)
-
-            # Update dictionary: append if sector exists, create if not
-            if sector_name in dict_product_by_sector:
-                # extend but avoid duplicates
-                dict_product_by_sector[sector_name].extend(
-                    p for p in new_products if p not in dict_product_by_sector[sector_name]
-                )
-            else:
-                dict_product_by_sector[sector_name] = new_products
-                new_sectors_list.append(sector_name)
 
 def cluster_configuration():
+
     st.subheader("Cluster configuration")
+
     if "cluster_configuration_prechoice" not in st.session_state:
         st.session_state["cluster_configuration_prechoice"] = 0
-    choice = st.radio("Select an option", [
-                      "Create a cluster", "Upload a cluster"], horizontal=True, index=st.session_state["cluster_configuration_prechoice"])
+
+    choice = st.radio(
+        "Select an option",
+        ["Create a cluster", "Upload a cluster"],
+        horizontal=True,
+        index=st.session_state["cluster_configuration_prechoice"]
+    )
 
     df_cluster = pd.DataFrame()
     cluster_name = "Cluster 1"
@@ -53,12 +41,12 @@ def cluster_configuration():
 
     if choice == "Upload a cluster":
         df_cluster, cluster_name = upload_cluster()
-    if not df_cluster.empty and df_cluster['site'].notnull().any():
+
+    if not df_cluster.empty and df_cluster["site_name"].notnull().any():
         # Input cluster name first
         cluster_name = st.text_input(
-            "Enter a name for your Cluster", value=cluster_name)
-
-    if not df_cluster.empty and df_cluster['site'].notnull().any():
+            "Enter a name for your Cluster", value=cluster_name
+        )
 
         with st.expander("Sites in the cluster", expanded=True):
             st.dataframe(df_cluster, hide_index=True, use_container_width=True)
@@ -67,24 +55,21 @@ def cluster_configuration():
         if "Cluster name" not in st.session_state:
             st.session_state["Cluster name"] = {}
 
-        if st.button("Save Cluster"):
+        if st.button("Save Cluster", type="primary"):
             if cluster_name.strip() == "":
                 st.warning("Please enter a name for the cluster.")
             elif cluster_name in st.session_state["Cluster name"]:
-                st.warning(
-                    f"A cluster named '{cluster_name}' already exists.")
+                st.warning(f"A cluster named '{cluster_name}' already exists.")
             else:
                 st.session_state["Cluster name"][cluster_name] = df_cluster
                 st.success(f"Cluster '{cluster_name}' saved.")
-
-        # Download button (triggers logic only when clicked)
-            if cluster_name.strip() == "":
-                st.warning("Please enter a name for the cluster.")
-            else:
-                combined_df = pd.concat([df_cluster], ignore_index=True)
-                exported_txt = combined_df.to_csv(index=False, sep=",")
-
-                st.download_button(
+        # Download button
+        if cluster_name.strip() == "":
+            st.warning("Please enter a name for the cluster.")
+        else:
+            combined_df = pd.concat([df_cluster], ignore_index=True)
+            exported_txt = combined_df.to_csv(index=False, sep=",")
+            st.download_button(
                     label="Download Cluster",
                     data=exported_txt,
                     file_name=f"Cluster_{cluster_name}.csv",
@@ -92,8 +77,14 @@ def cluster_configuration():
                     type="secondary"
                 )
 
-        else:
-            st.text("Please upload or create a cluster before saving.")
+        
+
+        
+
+            
+
+    else:
+        st.text("Please upload or create a cluster before saving.")
 
 
 def _cluster_product_selection():
@@ -116,9 +107,10 @@ def _cluster_product_selection():
             for product in all_products:
 
                 with st.expander(f"{product}", expanded=False):
+                    st.write("Production capacity in kt")
                     df = _get_df_site_parameters(product)
-                    df["product"] = product
-                    df["sector"] = sector
+                    df["product_name"] = product
+                    df["sector_name"] = sector
                     dict_cluster_selected[f"{sector}_{product}"] = df
 
     if all(df.empty for df in dict_cluster_selected.values()):
@@ -132,8 +124,8 @@ def _cluster_product_selection():
 def _get_df_site_parameters(product):
     # --- Define the template DataFrame ---
     df_template = pd.DataFrame({
-        'site': pd.Series(dtype='str'),
-        'production capacity (kt)': pd.Series(dtype='float64'),
+        'site_name': pd.Series(dtype='str'),
+        'prod_cap': pd.Series(dtype='float64'),
     })
 
     # --- Let the user edit the DataFrame with column config ---
@@ -143,15 +135,15 @@ def _get_df_site_parameters(product):
         hide_index=True,  # hides the index column
         use_container_width=True,
         key=f"site_parameters_{product}",
-        column_order=['site', 'production capacity (kt)'],
+        column_order=['site_name', 'prod_cap',"unit"],
         column_config={
-            "site": st.column_config.TextColumn(
-                "site",
+            "site_name": st.column_config.TextColumn(
+                "site_name",
                 help="Enter the site name"
             ),
-            "production capacity (kt)": st.column_config.NumberColumn(
-                "production capacity (kt)",
-                help="Enter production capacity in kt",
+            "prod_cap": st.column_config.NumberColumn(
+                "prod_cap",
+                help="Enter production capacity",
                 min_value=0.0,
                 format="%.2f"
             ),
@@ -162,9 +154,7 @@ def _get_df_site_parameters(product):
 
 
 def upload_cluster():
-    sectors_list_all = ["Cement", "Chemical",
-                        "Fertilisers", "Glass", "Refineries", "Steel"]
-    sectors_list_plus_other = sectors_list_all + ["No-AIDRES products"]
+    sectors_list_plus_other = sectors_list_all
 
     # Initialization
     df_cluster = pd.DataFrame()
@@ -175,52 +165,30 @@ def upload_cluster():
     )
     cluster_name = "Upload file"
     if uploaded_file:
-        import re
-        cluster_name = uploaded_file.name.split(".")[0]
-        match = re.search(r"ECM_Tool_(.+)_cluster$", cluster_name)
-        if match:
-            cluster_name = match.group(1)
+        # Remove the "Cluster_" prefix and ".csv" suffix
+        file_name = uploaded_file.name
+        if file_name.startswith("Cluster_") and file_name.endswith(".csv"):
+            cluster_name = file_name[len("Cluster_"):-len(".csv")]
         # Read the uploaded file directly into a DataFrame
         df = pd.read_csv(uploaded_file, sep=",")
         # Try to infer sector and product columns, or fallback to template
-        if set(['sector', 'product']).issubset(df.columns):
+        if set(['sector_name', 'product_name']).issubset(df.columns):
             tabs = st.tabs(sectors_list_plus_other)
             for i, sector in enumerate(sectors_list_plus_other):
                 with tabs[i]:
-                    if sector == "No-AIDRES products":
-                        other_products = []
-                        for product in df[df["sector"] == sector]["product"].unique():
-                            other_products.append(product)
-                        all_products = other_products
-                        if st.session_state.get("Pathway name"):
-                            all_possible_products = set()
-                            for name, pathway in st.session_state["Pathway name"].items():
-                                for sector_product in pathway.keys():
-                                    split_parts = sector_product.split("_")
-                                    if split_parts[0] == "No-AIDRES products":
-                                        all_possible_products.add(
-                                            split_parts[-1])
-                        rest_all_products = list(
-                            set(all_possible_products) - set(all_products))
-                        if rest_all_products:
-                            product_selected = st.multiselect(
-                                "Select a product included in pathways", rest_all_products
-                            )
-                            if product_selected and product_selected not in all_products:
-                                all_products.extend(product_selected)
-
-                    else:
-                        all_products = dict_product_by_sector[sector]
+                    all_products = dict_product_by_sector[sector]
                     for product in all_products:
-                        with st.expander(f"{sector} - {product}", expanded=False):
-                            df_product = df[(df['sector'] == sector) & (
-                                df['product'] == product)].copy()
+                        with st.expander(f"{product}", expanded=False):
+                            st.write("Production capicity in kt")
+                            df_product = df[(df['sector_name'] == sector) & (
+                                df['product_name'] == product)].copy()
+                            unit = df_product["unit"]
                             if not df_product.empty:
                                 df_product = df_product
                             else:
                                 df_product = pd.DataFrame({
-                                    'site': pd.Series(dtype='str'),
-                                    'production capacity (kt)': pd.Series(dtype='float64'),
+                                    "site_name": pd.Series(dtype='str'),
+                                    'prod_cap': pd.Series(dtype='float64'),
                                 })
 
                             # --- Let the user edit the DataFrame with column config ---
@@ -231,15 +199,15 @@ def upload_cluster():
                                 use_container_width=True,
                                 key=f"site_parameters_{product}",
                                 column_order=[
-                                    'site', 'production capacity (kt)'],
+                                    'site_name', 'prod_cap','unit'],
                                 column_config={
-                                    "site": st.column_config.TextColumn(
-                                        "site",
+                                    "site_name": st.column_config.TextColumn(
+                                        "site_name",
                                         help="Enter the site name"
                                     ),
-                                    "production capacity (kt)": st.column_config.NumberColumn(
-                                        "production capacity (kt)",
-                                        help="Enter production capacity in kt",
+                                    "prod_cap": st.column_config.NumberColumn(
+                                        "prod_cap",
+                                        help=f"Enter production capacity in {unit}",
                                         min_value=0.0,
                                         format="%.2f"
                                     ),
@@ -247,8 +215,8 @@ def upload_cluster():
                             )
 
                             if not edited_df.empty:
-                                edited_df['product'] = product
-                                edited_df['sector'] = sector
+                                edited_df['product_name'] = product
+                                edited_df['sector_name'] = sector
                             df_cluster = pd.concat(
                                 [df_cluster, edited_df], ignore_index=True)
                             if not df_product.equals(edited_df):

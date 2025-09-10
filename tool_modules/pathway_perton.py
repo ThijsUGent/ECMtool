@@ -148,7 +148,7 @@ def perton_page():
 
     # Initialisation of all sectors
     sectors_list = ["Chemical", "Cement",
-                    "Refineries", "Fertilisers", "Steel", "Glass", "No-AIDRES products"]
+                    "Refineries", "Fertilisers", "Steel", "Glass"]
 
     type_ener_feed_gj = [item for item in type_ener_feed if "[gj/t]" in item]
     type_ener_feed_t = [item for item in type_ener_feed if "[t/t]" in item]
@@ -263,8 +263,7 @@ def perton_page():
 
 def _plot_per_pathway(selected_ener_feed, selected_pathways, sector, unit):
     if selected_pathways and sector:
-        selected_ener_feed
-    nbr_of_columns = len(selected_pathways)
+        nbr_of_columns = len(selected_pathways)
 
     if nbr_of_columns > 1:
         cols = st.columns(nbr_of_columns)

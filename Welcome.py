@@ -18,15 +18,15 @@ st.logo(logo_side, size="large",
         link="https://www.ugent.be/ea/emsme/en/research/research-ensy/energy-systems-clusters/ecm", icon_image=logo)
 
 
-st.subheader("RES2Go")
+st.subheader("UGent ECM RES2Go")
 st.markdown("""*Assessing and addressing the future of renewable energies in industrial processes and clusters*""")
 st.markdown("""
-    This tool —ECM RES2Go— starts from the AIDRES project, creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro level, and assess future demand of multiple energy sources.   """)
+    The RES2Go tool starts from the [AIDRES project](https://op.europa.eu/en/publication-detail/-/publication/577d820d-5115-11ee-9220-01aa75ed71a1/language-en), creating a variety of energy demand projections for industrial sites and clusters with a high level of product, process and location-based flexibilities and functionalities. Users can forecast energy pathways by modifying products and processes, creating clusters at micro to macro level, and assess future demand of multiple energy sources.   """)
 
 st.markdown("""
     :arrow_down: Start to check tutorial in documentation section and use the tool :arrow_down:
     """)
-st.page_link("pages/2_Documentation.py",
+st.page_link("pages/3_Documentation.py",
              label="Documentation", icon="📖", use_container_width=True)
 st.page_link("pages/1_RES2Go.py", label=" **RES2Go** ",
              icon="⚙️", use_container_width=True)
@@ -36,7 +36,7 @@ st.page_link("pages/8_About.py", label="About",
 st.markdown("""
     *Contact us:*
     """)
-st.page_link("pages/6_Contact.py", label="Contact",
+st.page_link("pages/7_Contact.py", label="Contact",
              icon="✉️", use_container_width=True)
 
 # st.video

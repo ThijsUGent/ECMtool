@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 st.title("🔎 Session State Explorer")
-
+st.write(st.session_state["Pathway name"])
 if not st.session_state:
     st.info("Session state is currently empty.")
 else:

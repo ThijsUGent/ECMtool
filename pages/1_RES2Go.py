@@ -40,7 +40,7 @@ tool_subsection_prechoice_from_doc = st.session_state.get(
 
 # Sidebar tool section
 tool_section_choices = ["Pathway",
-                        "Maps - European scale", "Cluster - micro scale", "Profile load", "Low Carbon supply"]
+                        "Maps - European scale", "Cluster - micro scale", "Profile load"]
 tool_section_index = min(tool_section_prechoice, len(tool_section_choices) - 1)
 
 tool_section = st.sidebar.radio(

@@ -12,9 +12,9 @@ from tool_modules.builder_functions import *
 
 # Mapping short codes to readable product names
 product_updates = {
-    "cement": "Cement",
+    "cement": "Cement product",
     "chemical-PE": "Polyethylene",
-    "chemical-PEA": "Polyethylene acetate",
+    "chemical-PEA": "Poly-ethyl-acetate",
     "chemical-olefins": "Olefins",
     "fertiliser-ammonia": "Ammonia",
     "fertiliser-nitric-acid": "Nitric acid",
@@ -29,7 +29,7 @@ product_updates = {
 
 # Mapping products to detailed descriptions
 def_product = {
-    "cement": (
+    "Cement product": (
         "Cement products include Portland Cement II (BV325R) and "
         "Limestone Calcined Clay Cement (LC3), based on the AIDRES report: "
         "https://op.europa.eu/en/publication-detail/-/publication/577d820d-5115-11ee-9220-01aa75ed71a1"
@@ -204,7 +204,7 @@ def select_page():
                             f"A pathway named '{pathway_name}' already exists.")
                     else:
                         st.session_state["Pathway name"][pathway_name] = dict_routes_selected
-                        st.session_state.sectors_list_new = []
+                        
                         st.session_state.new_sector = ""
                         st.success(f"Pathway '{pathway_name}' saved.")
                 if pathway_name.strip() == "":
