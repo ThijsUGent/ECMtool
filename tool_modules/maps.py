@@ -405,7 +405,9 @@ def map_per_pathway():
                     "Show legend", value=st.session_state.get("legend_show_last", True)
                 )
             with col2:
-                show_polygon = st.checkbox("Show polygon", value=True)
+                show_polygon = st.checkbox("Show polygon", value=False)
+                if show_polygon == True:
+                    st.write("Uncheck polygon to click on a pie chart")
 
             st.markdown(f"Energy clusters from {pathway} using {choice}")
             ## ADD POLYGON LAYER 
@@ -1338,7 +1340,6 @@ def mapping_cluster_polygons(gdf):
         get_polygon="polygon",
         get_fill_color=[128, 128, 128, 80],  # semi-transparent grey
         pickable=False,
-        stroked=True,
         get_line_color=[0, 0, 0],            # black border
         line_width_min_pixels=0.5,
     )

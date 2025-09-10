@@ -59,9 +59,13 @@ color_map.update({
 })
 
     # --- Sector and energy/feedstock types ---
+    
 sectors_list_all = ["Chemical", "Cement",
                         "Refineries", "Fertilisers", "Steel", "Glass"] + st.session_state.get("sectors_list_new", [])
+
 def cluster_results():
+    sectors_list_all = ["Chemical", "Cement",
+                        "Refineries", "Fertilisers", "Steel", "Glass"] + st.session_state.get("sectors_list_new", [])
     st.subheader("Cluster results")
 
     # --- Check session state ---
@@ -246,6 +250,8 @@ def _display_cluster_pathway(column_pathway_pairs, cluster, selected_columns, un
 
 
 def _get_utilization_rates(sectors):
+    sectors_list_all = ["Chemical", "Cement",
+                        "Refineries", "Fertilisers", "Steel", "Glass"] + st.session_state.get("sectors_list_new", [])
     # Loop through all sectors and set default value
     sector_utilization_defaut = {}
     for sector in sectors_list_all:
@@ -314,7 +320,6 @@ def _get_df_prod_x_perton_cluster(pathway, sector_utilization, selected_columns,
     if "sector_name_weighted" in df_prod_x_perton.columns:
         df_prod_x_perton["sector_name"] = df_prod_x_perton["sector_name_weighted"]
         df_prod_x_perton.drop(columns=["sector_name_weighted"], inplace=True)
-    st.write(df_prod_x_perton)
     # Multiply per ton with production rate (kt → t)
     for col in selected_columns:
         if col in df_prod_x_perton.columns:

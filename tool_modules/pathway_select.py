@@ -204,9 +204,13 @@ def select_page():
                             f"A pathway named '{pathway_name}' already exists.")
                     else:
                         st.session_state["Pathway name"][pathway_name] = dict_routes_selected
-                        
                         st.session_state.new_sector = ""
                         st.success(f"Pathway '{pathway_name}' saved.")
+                        for name in st.session_state["Pathway name"].keys():
+                            dict = st.session_state["Pathway name"][name]
+                            append_new_sectors(dict)
+
+ 
                 if pathway_name.strip() == "":
                     st.warning("Please enter a name for the pathway.")
                 else:
@@ -229,3 +233,50 @@ def select_page():
                 st.text("Please upload or create a pathway before saving.")
 
                 
+def append_new_sectors(uploaded_dict):
+    """
+    Add new sectors from uploaded pathway to session_state.
+    Add new products to session_state.
+    """
+
+    # Default sector → product mapping
+    default_dict = {
+        "Cement": ["Cement product"],
+        "Chemical": ["Polyethylene", "Polyethylene acetate", "Olefins"],
+        "Fertilisers": ["Ammonia", "Nitric acid", "Urea"],
+        "Glass": ["Container glass", "Glass fibre", "Float glass"],
+        "Refineries": ["Light liquid fuel"],
+        "Steel": ["Primary steel", "Secondary steel"],
+    }
+
+    # Initialize in session_state if missing
+    if "dict_product_by_sector" not in st.session_state:
+        st.session_state["dict_product_by_sector"] = default_dict.copy()
+    if "sectors_list_new" not in st.session_state:
+        st.session_state["sectors_list_new"] = []
+    if "product_list_new" not in st.session_state:
+        st.session_state["product_list_new"] = []
+
+    dict_product_by_sector = st.session_state["dict_product_by_sector"]
+
+    # Loop through uploaded items
+    for sector_product in uploaded_dict.keys():
+        sector = sector_product.split("_")[0].capitalize()   # e.g. "fertiliser-urea" → "Fertiliser"
+        product = product_updates.get(sector_product, sector_product)  # map to clean name if exists
+
+        # Add new sector if not already in list
+        if sector not in dict_product_by_sector:
+            dict_product_by_sector[sector] = []
+            if sector not in st.session_state["sectors_list_new"]:
+                st.session_state["sectors_list_new"].append(sector)
+
+        # Add new product if not already in mapping
+        if product not in dict_product_by_sector[sector]:
+            dict_product_by_sector[sector].append(product)
+            if product not in st.session_state["product_list_new"]:
+                st.session_state["product_list_new"].append(product)
+
+    # Save back
+    st.session_state["dict_product_by_sector"] = dict_product_by_sector
+        
+    

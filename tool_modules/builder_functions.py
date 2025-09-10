@@ -408,7 +408,6 @@ def _edit_pathway_ui(df, df_upload, sectors_list, columns_to_show_selection, mod
 
                         if was_modified:
                             modified = True
-    st.write(dict_routes_selected)
     return dict_routes_selected, modified
 # -------------------------------
 # Internal helper: append new sectors from uploaded file

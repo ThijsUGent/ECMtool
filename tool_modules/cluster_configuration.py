@@ -14,12 +14,12 @@ dict_product_by_sector = {
     "Steel": ["Primary steel", "Secondary steel"],
 }
 
-sectors_list_AIDRES = list(dict_product_by_sector.keys())
-new_sector_list = st.session_state["sectors_list_new"]
-sectors_list_all = list(sectors_list_AIDRES + new_sector_list)
+
 
 
 def cluster_configuration():
+    sectors_list_all=_list_ini()
+
 
     st.subheader("Cluster configuration")
 
@@ -91,6 +91,9 @@ def _cluster_product_selection():
     # Dictionary to collect selected sites per sector-product
     dict_cluster_selected = {}
 
+    sectors_list_all=_list_ini()
+
+
     selected_sectors = st.pills(
         "Sector(s)", sectors_list_all, selection_mode="multi"
     )
@@ -154,7 +157,8 @@ def _get_df_site_parameters(product):
 
 
 def upload_cluster():
-    sectors_list_plus_other = sectors_list_all
+    sectors_list_plus_other = _list_ini()
+
 
     # Initialization
     df_cluster = pd.DataFrame()
@@ -176,7 +180,9 @@ def upload_cluster():
             tabs = st.tabs(sectors_list_plus_other)
             for i, sector in enumerate(sectors_list_plus_other):
                 with tabs[i]:
-                    all_products = dict_product_by_sector[sector]
+                    dict_product_by_sector=st.session_state["dict_product_by_sector"]
+                    all_products = list(st.session_state.df_perton_ALL_sector[st.session_state.df_perton_ALL_sector["sector_name"] == sector]["product_name"].unique())
+
                     for product in all_products:
                         with st.expander(f"{product}", expanded=False):
                             st.write("Production capicity in kt")
@@ -197,7 +203,7 @@ def upload_cluster():
                                 num_rows="dynamic",
                                 hide_index=True,
                                 use_container_width=True,
-                                key=f"site_parameters_{product}",
+                                key=f"site_parameters_{sector}_{product}",
                                 column_order=[
                                     'site_name', 'prod_cap','unit'],
                                 column_config={
@@ -233,3 +239,15 @@ def upload_cluster():
     if modified:
         cluster_name += " modified"
     return df_cluster, cluster_name
+
+def _list_ini():
+    
+    if "sectors_list_new" not in st.session_state:
+        st.session_state["sectors_list_new"] = []
+
+    new_sector_list = st.session_state["sectors_list_new"]
+
+    sectors_list_AIDRES = list(dict_product_by_sector.keys())
+
+    sectors_list_all_ini = sectors_list_AIDRES + new_sector_list
+    return sectors_list_all_ini

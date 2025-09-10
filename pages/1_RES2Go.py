@@ -83,8 +83,8 @@ if tool_section == "Pathway":
         emissions_pathway()
 
     elif pathway_subsection == "Pathway visualisation":
-        view_page()
         st.session_state["tool_subsection_prechoice"] = 3
+        view_page()
 
 # === MAPS ===
 elif tool_section == "Maps - European scale":
@@ -108,7 +108,7 @@ elif tool_section == "Cluster - micro scale":
     st.session_state["tool_section_prechoice_doc"] = 2
 
     cluster_choices = ["Cluster configuration", "Cluster results"]
-    cluster_index = min(tool_subsection_prechoice, len(cluster_choices) - 1)
+    cluster_index = min(tool_subsection_prechoice_from_doc, len(cluster_choices) - 1)
 
     cluster_subsection = st.sidebar.radio(
         "Select a page",

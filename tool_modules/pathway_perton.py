@@ -400,7 +400,7 @@ def _diplay_chart_per_route(selected_ener_feed, pathway, sector, unit):
         st.warning(f"No data available for sector: {sector}")
         return
 
-    st.write(f"**{pathway} - {sector}**")
+    st.write(f"**{sector}**")
 
     product_names = df_filtered["product_name"].unique()
 
